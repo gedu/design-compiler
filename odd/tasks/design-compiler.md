@@ -171,6 +171,14 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     remote `<link>`s and inline `tokens.css` (10 remote URLs today), drop body-text webfonts, then
     inline SVG icons (most likely refusal; warn-only, so a refusal costs a name plus a TODO and not the
     run), then a `widthClass` per screen in the manifest.
+  - **Amended in T3 prep, because the checker found it.** T1 shipped `tool-behavior` rows with `ask:
+    null`, which contradicted spec/01's own table ("negotiable, one round trip at a time"): 12 rules,
+    including every remote-resource rule, had nothing for the prompt to ask. They now carry ask text.
+    The two fields that make this enforceable are `prompt` (`ask` | `silent`) and `promptNote` (who
+    deferred a silent rule). Current split: 37 rows generated into the prompt (25 author + 12
+    tool-behavior), 13 silent (11 runtime + 2 author rows held for T4, `paint-without-js` being the
+    runtime one). Correcting this also corrected the checker's own rule: only `runtime` may never
+    carry an ask; `tool-behavior` may, because refusal there costs a `warn` and not the run.
 
 - [ ] T2 Validator: contract as executable checks
   - Blocked by: T1

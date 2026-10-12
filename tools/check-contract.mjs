@@ -55,8 +55,22 @@ for (const r of rules) {
   if (!MEASURED.includes(r.measured)) fail(`${r.id}: measured "${r.measured}" invalid`);
   // Only author-owned markup can be asked for in a prompt. Asking for runtime output is the mistake
   // T1 exists to prevent, so a non-null ask on those rows is a defect, not a nicety.
+  // An ask is text a prompt shows to the design tool. For an author-owned rule it is a requirement,
+  // so it must exist. For a tool-behavior rule it is a request the tool may refuse (T4 proves which
+  // ones move), so it may exist. For a runtime-owned rule it is a lie about a capability: the bytes
+  // live in a generated bundle, so no ask is ever allowed there.
   if (r.owner === 'author' && !r.ask) fail(`${r.id}: owner author requires an ask string`);
-  if (r.owner !== 'author' && r.ask) fail(`${r.id}: owner ${r.owner} must not carry an ask (nobody can write it)`);
+  if (r.owner === 'runtime' && r.ask) fail(`${r.id}: owner runtime must not carry an ask`);
+  // ---- prompt participation ----
+  if (!['ask', 'silent'].includes(r.prompt)) fail(`${r.id}: prompt must be ask|silent, got ${r.prompt}`);
+  if (r.prompt === 'ask' && !r.ask) fail(`${r.id}: prompt ask requires ask text`);
+  if (r.prompt === 'ask' && r.owner === 'runtime')
+    fail(`${r.id}: a runtime-owned rule cannot be asked for; it is the mistake T1 exists to prevent`);
+  if (r.owner === 'runtime' && r.prompt !== 'silent')
+    fail(`${r.id}: runtime-owned rules are always silent`);
+  // A silent row is silent for a reason: either nobody can write it, or a human deferred it.
+  if (r.prompt === 'silent' && r.owner !== 'runtime' && !r.promptNote)
+    fail(`${r.id}: silent but not runtime-owned, so it needs a promptNote saying who deferred it and why`);
 }
 
 // ---- 2. severity agrees with the spec/07 catalog ----
