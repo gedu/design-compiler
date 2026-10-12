@@ -1,0 +1,110 @@
+# Design Compiler
+
+Turns a Claude Design export into real UI code for Compose Multiplatform (Android, iOS, desktop),
+native SwiftUI, React Native and React web. Output is a compiling starting point with the design's
+geometry, colors and type already resolved. No logic, no state, no navigation: props, hardcoded
+values and empty callbacks, so the next agent spends its tokens on behavior instead of parsing HTML.
+
+The other half of the tool is a prompt builder: it assembles the instructions given to Claude Design
+so the design arrives in a shape a compiler can read, and a validator proves the prompt worked.
+
+~~~text
+Claude Design export  (screens/*.html, tokens.json)
+        |
+        v   headless Chromium: walk the DOM, read getComputedStyle()
+   IR     one JSON tree per screen: node kind, geometry, resolved style,
+        | token role, children, repetition groups, states
+        v
+   validator   does the input honor the contract? if not, fail loudly
+        |
+        +--> compose        Color.kt Theme.kt Type.kt Shapes.kt *.kt   (Android, iOS, desktop)
+        +--> swiftui        *.swift  Color Assets  LazyVStack/LazyVGrid
+        +--> react-native   *.tsx  StyleSheet.create  AppRegistry
+        +--> react-web      *.tsx  CSS Modules
+        +--> figma          frames from the IR, no plugin, no import quota
+
+prompt builder (spec/08) --> Claude Design --> the export above, validated by spec/07
+~~~
+
+## Why this is a compiler and not a prompt
+
+The hard half of "convert the design to code" is not generating code, it is deciding what the
+design means: which box is a component, which repeated box is a list, which hex is which token,
+which of fifteen text styles this 16/24 medium line is.
+
+That work is already finished inside the HTML. The browser has resolved every rule, and the
+repetition of a card twelve times is already the list. Reading those facts is deterministic.
+Asking a model to re-derive them from HTML text is not, and it is the expensive part.
+
+This project reads the computed DOM, so the model is never the parser.
+
+## The bet this rests on
+
+The input format is ours. spec/01-input-contract.md is a contract the design tool is required to
+honor, enforced by a validator before a single line is emitted.
+
+With arbitrary HTML this project does not work, and it should not try. With contract-honoring
+HTML the mapping is mostly a table. Every rule in the contract buys a translation that would
+otherwise be a guess, and the contract is cheap because it also improves the design output itself.
+
+## Non-goals
+
+- Pixel-perfect output. Text metrics differ per renderer by one or two pixels; chasing them is
+  wasted work.
+- Runtime behavior: state, effects, navigation, data fetching, accessibility wiring beyond labels.
+  The target framework owns those, and the whole point is to leave them for a human or a focused
+  agent.
+- CSS as an input language. No cascade, no preprocessors, no Tailwind, no CSS-in-JS, no Shadow DOM.
+  The contract is the input language.
+- Design fidelity review. The validator checks the contract, not taste.
+- A general HTML to Compose library.
+
+## Layout
+
+| Path | What |
+| --- | --- |
+| spec/01-input-contract.md | what the export must contain, machine checkable |
+| spec/02-ir.md | the intermediate representation, field by field |
+| spec/03-extraction.md | reading the DOM, computed-style rules, ordering |
+| spec/04-mapping-compose.md | CSS to Compose table and every known trap |
+| spec/05-mapping-react-native.md | CSS to RN, including what Yoga cannot do |
+| spec/06-mapping-react-web.md | CSS to CSS Modules, the cheap target |
+| spec/07-validator.md | diagnostic catalog: code, severity, fix hint |
+| spec/08-platform-aware-prompt.md | the Claude Design prompt, target-platform aware |
+| spec/09-wizard.md | the interactive CLI |
+| spec/10-learning-loop.md | how per-screen runs accumulate rules, not prose |
+| spec/corner-cases.md | the flat catalog: known hard cases and their resolution |
+| odd/tasks/design-compiler.md | the build order, with seams and blockers |
+
+## Where to start reading
+
+| Order | File | Read it for |
+| --- | --- | --- |
+| 1 | spec/01-input-contract.md | the bet: a contract instead of arbitrary HTML |
+| 2 | spec/02-ir.md | the one structure every target reads |
+| 3 | spec/03-extraction.md | computed style, reduction, resolution tables |
+| 4 | spec/04-mapping-compose.md | the target that matters, and the ten traps |
+| 5 | spec/corner-cases.md | the catalog to work through when output is wrong |
+| 6 | odd/tasks/design-compiler.md | the build order, T0 first |
+
+Verified numbers, not from memory: type scale, shape ladder, elevation ladder and state layer
+opacities were read out of material3 1.12.0-alpha03 sources. Re-verify against whatever version is
+pinned when the emitter is built, and treat a mismatch as a bug in the emitter, not as a design
+issue.
+
+
+## Status
+
+Spec only. No code yet, and no commits yet.
+
+The input format was written down before an export existed. One arrived on 2026-10-12
+(`~/Documents/CK/internals/kotlin-workshop-lab/jetcasterDesign`) and it differs from spec/01 in ways
+that matter: `.dc.html` templates rendered by a generated runtime, remote fonts and `tokens.css` over
+`<link>`, a glyph icon font instead of inline SVG, and none of the `data-*` contract attributes. In
+exchange it provides a prop schema (`data-props`), a `MANIFEST.json` with screens and states, and
+`tokens.json` with color, typography, shape, spacing and motion. Read the "What changed" table in
+`odd/tasks/design-compiler.md` before taking any statement in spec/01 as fact about the input.
+
+Two risks, and the tasks that retire them: whether Claude Design can honor a markup contract (T4,
+needs a human round trip), and whether resolved computed style is enough to emit code that looks like
+the design (T0 plus T5, no human needed). SwiftUI has no mapping spec yet; that is T11.
