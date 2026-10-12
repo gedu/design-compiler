@@ -1,0 +1,502 @@
+[
+  {
+    "id": "token-file-present",
+    "code": "tokens-missing",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The extractor opens the configured token path on disk before any frame is rendered and fails when the file is absent or unparsable.",
+    "fix": "export the tokens alongside the frames",
+    "measured": "present"
+  },
+  {
+    "id": "token-file-both-schemes",
+    "code": "tokens-incomplete-scheme",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The validator diffs the role-key sets of color.light and color.dark in the token file and reports any role present on one side only.",
+    "fix": "regenerate both schemes from the same seed",
+    "measured": "present"
+  },
+  {
+    "id": "token-file-type-scale",
+    "code": "tokens-missing",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The validator requires the typography, shape and spacing top-level maps of the token file to exist and be non-empty.",
+    "fix": "export a token file with color, typography, shape and spacing blocks",
+    "measured": "present"
+  },
+  {
+    "id": "manifest-frames-declared",
+    "code": "frame-width-unknown",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The validator reads MANIFEST.json and errors on any screen whose declared width class is missing, plus any .dc.html frame on the board that the manifest never names.",
+    "fix": "declare the frame in the manifest with its width class",
+    "measured": "violated"
+  },
+  {
+    "id": "manifest-declares-design-system",
+    "code": "manifest-incomplete",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The validator requires the manifest's design system and seed fields to be present and their seed to be a #RRGGBB literal.",
+    "fix": "declare the design system and the seed in the manifest",
+    "measured": "present"
+  },
+  {
+    "id": "brief-decisions-file",
+    "code": "brief-missing",
+    "severity": "warn",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The extractor looks for the configured brief path and, when absent, drops the notes section of the emitted code and reports this code.",
+    "fix": "add a brief listing decisions and invented values",
+    "measured": "present"
+  },
+  {
+    "id": "css-inline-no-external",
+    "code": "css-external",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The materializer counts link rel=stylesheet and @import occurrences per template and the request router records any stylesheet fetch that leaves the loopback directory.",
+    "fix": "inline the CSS into the file",
+    "measured": "violated"
+  },
+  {
+    "id": "paint-without-js",
+    "code": "js-dependent-paint",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The materializer renders the frame twice, once with scripts disabled, and compares node counts and geometry; the reference format needs dc-runtime to build any tree at all.",
+    "fix": "hand the materializer a frame whose first paint does not need script",
+    "measured": "violated"
+  },
+  {
+    "id": "no-remote-image",
+    "code": "remote-resource",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The request router aborts and records every request that is not loopback or listed in the vendor lock, and the tree walk flags img and background urls that failed.",
+    "fix": "inline the asset or replace it with a placeholder",
+    "measured": "violated"
+  },
+  {
+    "id": "no-remote-font",
+    "code": "webfont-remote",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The validator checks each stylesheet link and @font-face src for a remote origin, and the font stack actually applied to text nodes comes from the computed-style dump.",
+    "fix": "use the platform font stack",
+    "measured": "violated"
+  },
+  {
+    "id": "font-stack-platform-default",
+    "code": "webfont-remote",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Set every text run in a stack that starts with the platform default: Roboto, then system sans.",
+    "detect": "The materializer reports the font family actually applied to each text node after document.fonts.ready and the validator checks it against the platform stack.",
+    "fix": "start the font stack with the platform default instead of a remote face",
+    "measured": "present"
+  },
+  {
+    "id": "icon-named",
+    "code": "icon-unnamed",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Put data-icon=\"ic_name\" on every icon, inline SVG or glyph alike: the name is the one thing no one can measure off the screen.",
+    "detect": "The extractor classifies every node whose computed font-family is an icon font or whose subtree is a bare svg, then reports the ones with no data-icon in the materialized frame.",
+    "fix": "add data-icon=\"ic_name\" to the element that draws the icon",
+    "measured": "violated"
+  },
+  {
+    "id": "icon-inline-svg",
+    "code": "icon-font",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Draw icons as inline SVG with fill=\"currentColor\"; a glyph font cannot be converted, only referenced by name.",
+    "detect": "The probe already counts inline svg occurrences; the validator counts nodes drawing a glyph from an icon font family in the materialized frame.",
+    "fix": "replace the glyph with inline SVG path data, or keep the font and expect a name-plus-TODO reference",
+    "measured": "violated"
+  },
+  {
+    "id": "unit-pixel-equals-dp",
+    "code": "viewport-units",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Write every length in px and treat 1px as 1dp; no em, rem or percent for layout sizes.",
+    "detect": "The computed-style dump already resolves every length to px; the extractor reports any node whose source style used a relative unit for width, height or padding.",
+    "fix": "state the size in px so it maps to dp without a scaling table",
+    "measured": "present"
+  },
+  {
+    "id": "frame-fixed-width",
+    "code": "reflow-detected",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Give every frame one fixed pixel width and lay it out at that width only: no responsive reflow inside a frame.",
+    "detect": "The materializer renders the frame at its declared width, re-renders 15 percent wider, and reports any node whose box moved or resized.",
+    "fix": "fix the width and re-export; publish a second frame for the second width class",
+    "measured": "violated"
+  },
+  {
+    "id": "layout-flex-grid-only",
+    "code": "absolute-layout",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Build layouts with flex and grid only. Use position: absolute only for an overlay that sits on top of a box you also declare, and mark the box it overlays.",
+    "detect": "The tree walk reads computed position on every node and reports absolute or fixed on a node that is not a declared overlay of a sibling.",
+    "fix": "use flex or grid, or declare the absolute node as an overlay of a named box",
+    "measured": "violated"
+  },
+  {
+    "id": "no-transform-spacing-no-viewport-units",
+    "code": "viewport-units",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Never use vh, vw, dvh, svh, vmin or vmax for a size, and never use transform to place something.",
+    "detect": "The validator scans source styles for viewport units in any box property and for transform values other than an animation keyframe.",
+    "fix": "use the frame's fixed px width for the size and layout properties for placement",
+    "measured": "violated"
+  },
+  {
+    "id": "states-as-markup",
+    "code": "animation-required",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Show every state you want compiled as markup the converter can reach, either its own block or a declared state the tool can select. A state that only an animation or a hover reaches is a state no code gets.",
+    "detect": "The materializer tries each declared state and compares trees; a node set that only appears after a transition end or a keyframe finishes is the violation.",
+    "fix": "render each state as its own markup or as a selectable declared state",
+    "measured": "violated"
+  },
+  {
+    "id": "no-overflow-clip-blur-gradient",
+    "code": "clip-missing",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Avoid overflow tricks, clip-path, filter: blur() and gradients: no target has a single property for them.",
+    "detect": "The validator greps the source styles for clip-path, filter, backdrop-filter and gradient functions, and pairs rounded containers with backgrounded descendants for clip evidence.",
+    "fix": "use a surface or container color tier instead of a blur, gradient or clip",
+    "measured": "present"
+  },
+  {
+    "id": "component-root-labeled",
+    "code": "component-unlabeled",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Put data-component=\"kebab-name\" on the root of every component you expect to become code.",
+    "detect": "The repetition detector groups structurally identical subtrees and reports every group whose root carries no data-component.",
+    "fix": "add data-component=\"kebab-name\" to the component root",
+    "measured": "absent"
+  },
+  {
+    "id": "component-name-stable-across-instances",
+    "code": "component-name-invalid",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Use the same data-component value on every instance of the same component.",
+    "detect": "The repetition detector compares the data-component values it finds across the instances of one structural group and reports a group whose instances disagree on the name.",
+    "fix": "give every instance of a component the same data-component value",
+    "measured": "absent"
+  },
+  {
+    "id": "state-declared",
+    "code": "state-variation-unstable",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Put data-state=\"...\" (or data-variant, data-size) on each state you show, so a state becomes a parameter instead of a twelfth component.",
+    "detect": "The extractor diffs the instances of one component across materialized states and reports structural differences that no data-state or data-variant labels.",
+    "fix": "label each state frame with data-state or data-variant",
+    "measured": "absent"
+  },
+  {
+    "id": "elevation-declared",
+    "code": "elevation-missing",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Declare the M3 step on any surface that sits at an elevation: data-elevation with one of 0, 1, 3, 6, 8 or 12. Never draw a box-shadow.",
+    "detect": "The validator flags any node with a computed box-shadow, or any surface whose computed background differs from its parent's by a container tier, that carries no data-elevation.",
+    "fix": "add data-elevation=\"0|1|3|6|8|12\" to the surface, and drop the box-shadow",
+    "measured": "absent"
+  },
+  {
+    "id": "token-role-declared",
+    "code": "color-literal",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Put data-token=\"colorScheme.<role>\" on any element whose background is a theme color.",
+    "detect": "The validator takes each node with a background that resolves to a scheme color and reports the ones with no data-token, falling back to reverse hex lookup when the attribute is missing.",
+    "fix": "add data-token=\"colorScheme.<role>\" to the element with the colored background",
+    "measured": "absent"
+  },
+  {
+    "id": "text-role-declared",
+    "code": "style-off-scale",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Mark text you want named in the generated API with data-role=\"title\", \"subtitle\" or \"meta\".",
+    "detect": "The extractor matches each text node's computed size, line height and weight against the token file's type roles and reports the ones that match none.",
+    "fix": "add data-role=\"title|subtitle|meta\" to the text node",
+    "measured": "absent"
+  },
+  {
+    "id": "color-from-role-property",
+    "code": "color-literal",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Write every color as a custom property whose name is a Material role, such as --md-sys-color-primary.",
+    "detect": "The validator walks the applied styles of the materialized frame and reports any color value that is not a role-named custom property reference in the source.",
+    "fix": "reference the role custom property instead of a value",
+    "measured": "present"
+  },
+  {
+    "id": "no-literal-hex-outside-tokens",
+    "code": "color-literal",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Keep literal hex values inside the token file and out of the markup: the design body references properties only.",
+    "detect": "The validator scans the styles found in template files, excluding the token file and the token block, for hex or rgb literals.",
+    "fix": "move the value into the token file and reference the property",
+    "measured": "present"
+  },
+  {
+    "id": "dark-reachable-prefers-color-scheme",
+    "code": "dark-only-via-js",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Make the dark scheme reachable through @media (prefers-color-scheme: dark), not only through a class or a toggle.",
+    "detect": "The materializer emulates prefers-color-scheme: dark with scripting disabled and compares the computed palette against the light render.",
+    "fix": "add the prefers-color-scheme media query; a class or query toggle alone is not enough",
+    "measured": "violated"
+  },
+  {
+    "id": "no-alpha-of-role-or-color-mix",
+    "code": "color-alpha-of-role",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Never put alpha on a role color, never use color-mix(), and never use opacity to fake a container: use the container tier the design means.",
+    "detect": "The validator finds role-valued properties used inside color-mix or rgb(... / alpha), and any node whose computed background is a role color at less than full alpha.",
+    "fix": "use the container or fixed role the design meant",
+    "measured": "present"
+  },
+  {
+    "id": "no-gradient-background",
+    "code": "color-alpha-of-role",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Use a flat surface or container color for backgrounds; no gradient background.",
+    "detect": "The validator rejects any computed background-image that resolves to a gradient function on a node in the materialized frame.",
+    "fix": "pick a surface or container color tier for the background",
+    "measured": "present"
+  },
+  {
+    "id": "grid-min-declared",
+    "code": "grid-min-undeclared",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Put data-grid-min=\"140\" on every grid container: the minimum cell width is a decision, not something measurable off the rendered tracks.",
+    "detect": "The tree walk finds nodes with computed display: grid and reports the ones whose subtree carries no data-grid-min.",
+    "fix": "add data-grid-min=\"<px>\" to the grid container",
+    "measured": "violated"
+  },
+  {
+    "id": "scroll-region-declared",
+    "code": "scroll-undeclared",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Put data-scroll=\"list\" or data-scroll=\"grid\" on any region the app scrolls through.",
+    "detect": "The materializer compares scrollHeight against clientHeight per node and reports scrollable regions without data-scroll.",
+    "fix": "add data-scroll=\"list|grid\" to the scrollable container",
+    "measured": "absent"
+  },
+  {
+    "id": "region-intent-declared",
+    "code": "component-unlabeled",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Label the Scaffold-like regions: data-region with top-bar, content, now-playing-bar or snackbar.",
+    "detect": "The validator checks that every screen frame carries the regions its manifest and layout imply, such as a top bar and a now-playing bar.",
+    "fix": "add data-region=\"top-bar|content|now-playing-bar|snackbar\" to the region root",
+    "measured": "absent"
+  },
+  {
+    "id": "names-kebab-ascii",
+    "code": "component-name-invalid",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Write class names and data-component values as ASCII kebab-case; they become Kotlin and TypeScript identifiers.",
+    "detect": "The validator matches every class token and data-component value against an ASCII kebab-case pattern before any emitter sees them.",
+    "fix": "rename the value to ASCII kebab-case",
+    "measured": "violated"
+  },
+  {
+    "id": "real-copy-no-lorem",
+    "code": "lorem-ipsum",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Use the real strings the app will show; never lorem ipsum or placeholder filler.",
+    "detect": "The validator matches each text node's string against a lorem-ipsum and placeholder-word list built from the strings actually emitted in the frame.",
+    "fix": "replace the placeholder copy with the real string",
+    "measured": "present"
+  },
+  {
+    "id": "varying-text-marked-as-prop",
+    "code": "prop-undeclared",
+    "severity": "warn",
+    "owner": "author",
+    "ask": "Mark every piece of text that varies between instances with data-prop=\"title\", \"author\" and so on; unmarked copy is welded into the generated component.",
+    "detect": "The extractor diffs text across instances of one component and reports strings that differ but carry no data-prop and have no data-props schema entry.",
+    "fix": "add data-prop=\"<name>\" to the varying text node",
+    "measured": "violated"
+  },
+  {
+    "id": "no-pseudo-element-content",
+    "code": "pseudo-content",
+    "severity": "error",
+    "owner": "author",
+    "ask": "Put real information in real nodes: no text or icon carried by ::before or ::after.",
+    "detect": "The validator reads computed ::before and ::after content per node and rejects any value that is not a decorative empty or pure-shape rule.",
+    "fix": "make the pseudo element's content a real node",
+    "measured": "present"
+  },
+  {
+    "id": "placeholder-syntax",
+    "code": "js-dependent-paint",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The materializer counts {{ }} sequences left in the settled DOM; the probe measures that count per frame.",
+    "fix": "supply a prop set that resolves every {{ }} placeholder before extraction",
+    "measured": "present"
+  },
+  {
+    "id": "dynamic-element-x-dc",
+    "code": "js-dependent-paint",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk counts x-dc elements in the template source versus the materialized DOM, so annotation never targets them.",
+    "fix": "nothing to demand: the extractor reads these after the runtime expands them",
+    "measured": "absent"
+  },
+  {
+    "id": "conditional-sc-if",
+    "code": "animation-required",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk counts sc-if elements per template; they are the runtime's own conditionals and the extractor only sees their expansion.",
+    "fix": "nothing to demand: reach each state through the query-string prop set",
+    "measured": "absent"
+  },
+  {
+    "id": "repetition-sc-for",
+    "code": "component-unlabeled",
+    "severity": "warn",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk counts sc-for elements per template; repetition in the materialized DOM comes from the runtime, not from authored markup.",
+    "fix": "nothing to demand: label the component root the runtime renders inside",
+    "measured": "absent"
+  },
+  {
+    "id": "composition-dc-import",
+    "code": "frame-width-unknown",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk collects every dc-import with its name, width, height and platform attributes from the board; composition edges are read, never demanded.",
+    "fix": "nothing to demand: composition edges are read from the export",
+    "measured": "present"
+  },
+  {
+    "id": "head-links-helmet",
+    "code": "css-external",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk counts helmet elements per template, which is how the runtime injects link and style tags into the head.",
+    "fix": "nothing to demand here; the links to remove are the remote ones",
+    "measured": "present"
+  },
+  {
+    "id": "interaction-style-attrs",
+    "code": "animation-required",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk collects style-hover, style-pressed and style-focus attributes per template as state declarations the extractor can read directly.",
+    "fix": "nothing to demand: states declared this way are already evidence",
+    "measured": "present"
+  },
+  {
+    "id": "prop-schema-declared",
+    "code": "callback-inferred",
+    "severity": "warn",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The extractor parses the data-props JSON per template, which supplies prop names, tsType, defaults, enum options and callbacks.",
+    "fix": "nothing to demand: props and callbacks come from the schema when present",
+    "measured": "present"
+  },
+  {
+    "id": "board-one-file-per-project",
+    "code": "reflow-detected",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The materializer requests one ?frame=<id> and counts the frame elements that settle; the probe measured one per request for all nine frames.",
+    "fix": "nothing to demand: ?frame= plus the loopback server yields one frame",
+    "measured": "present"
+  },
+  {
+    "id": "state-via-runtime-script",
+    "code": "animation-required",
+    "severity": "error",
+    "owner": "runtime",
+    "ask": null,
+    "detect": "The tree walk finds script[data-dc-script] and its this.state references; states live in that function instead of in markup blocks.",
+    "fix": "nothing to demand: drive each state with the query-string prop set",
+    "measured": "present"
+  },
+  {
+    "id": "no-remote-links-emitted",
+    "code": "remote-resource",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The request router counts aborted requests per frame and the validator counts remote hrefs in template source; the probe reported 10 occurrences across five templates.",
+    "fix": "inline the CSS or ship the asset inside the export folder",
+    "measured": "violated"
+  },
+  {
+    "id": "icon-glyph-font-emitted",
+    "code": "icon-font",
+    "severity": "warn",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The probe counts inline svg occurrences and the validator counts nodes drawing a glyph from an icon font family in the materialized frame.",
+    "fix": "replace with inline SVG, or keep the font and expect a name plus TODO",
+    "measured": "violated"
+  },
+  {
+    "id": "webfont-body-text-emitted",
+    "code": "webfont-remote",
+    "severity": "error",
+    "owner": "tool-behavior",
+    "ask": null,
+    "detect": "The validator checks font-src of every loaded stylesheet and @font-face rule, and the probe records which font families were active when geometry was read.",
+    "fix": "use the platform font stack",
+    "measured": "violated"
+  }
+]

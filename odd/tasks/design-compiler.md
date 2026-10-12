@@ -139,16 +139,38 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     **zero of the nine contract `data-*` attributes exist anywhere in the export.** T1 starts from
     that fact rather than discovering it later.
 
-- [ ] T1 Contract v2: what the runtime owns versus what Claude Design can annotate
+- [x] T1 Contract v2: what the runtime owns versus what Claude Design can annotate
   - Blocked by: ~~T0~~ done
-  - Seams: `spec/01` amended in the same commit as the first validator checks
-  - New inputs from T0: the `data-props` schema carries callbacks (`onSelect`, `onToggle`,
-    `tsType: "() => void"`), so callbacks move from inference to input wherever the schema declares
-    them.
-  - Split every rule into: author-owned markup (we can require an attribute), runtime-owned markup
-    (we must detect or give up), and design-tool behavior we must ask for (inline SVG, no webfont, no
-    remote links). Anything in the second bucket that cannot be detected becomes an explicit
-    non-goal. Rewrite the `position: absolute` and icon rules from the assumptions above.
+  - Seams: `rules/contract-rules.json` as the normative list, `node tools/check-contract.mjs`
+  - **Outcome, 2026-10-12.** 50 rules, each with code, severity, owner, ask, detect, fix and a
+    `measured` value taken from the probe or the templates: owner `author` 27 / `tool-behavior` 12 /
+    `runtime` 11; severity error 33 / warn 17; measured present 21 / violated 18 / absent 11. spec/01
+    keeps its reasoning prose and points at the table as normative; spec/07 gained
+    `manifest-incomplete`, `brief-missing`, `prop-undeclared`, moved `icon-font` from error to warn per
+    the recorded decision, and states which codes have no positive case yet. spec/08's markup block is
+    generated from the table instead of restating it.
+  - **The asymmetry T1 existed for:** 11 rules are `runtime`-owned and can never be demanded of a
+    design prompt, because the text a prompt would change lives in a generated bundle whose own header
+    says "do not edit". Meanwhile all 9 contract `data-*` attributes are author-owned and absent, so
+    the gap is exactly the half a prompt can move. That is what makes the prompt-first route viable.
+  - `tools/check-contract.mjs` enforces row schema, ask-only-for-author, severity agreement with the
+    spec/07 catalog, reverse coverage of every catalog code, and placeholder-free ask text. Verified
+    non-vacuous: injecting a severity drift plus an `ask` on a `runtime` row produced exactly 2
+    failures, and undoing them returned to green.
+  - **Caught by the check, not by reading:** `weight-without-font` sat in the warn catalog with no rule
+    row and no explanation. It is emission-side (only meaningful once the target's bundled fonts are
+    known) and is now declared as such.
+  - **Three rules are violated and likely unsatisfiable, kept violated rather than softened, for T4 to
+    decide:** `paint-without-js` (the format needs `support.js` to build any tree, so "renders with JS
+    disabled" cannot be met), `dark-reachable-prefers-color-scheme` (`@media (prefers-color-scheme:
+    dark)` occurs 0 times across the 5 templates and `tokens.css`; either the tool learns it or the
+    materializer emulates the scheme and the rule dies) and `frame-fixed-width` / `reflow-detected`
+    (one board reflows HomeScreen across width classes, which the rule contradicts head-on; `?frame=`
+    may make it a non-goal). T4 records one resolution per rule, in writing.
+  - Negotiation targets among `tool-behavior`, ranked by what one prompt sentence might buy: drop the
+    remote `<link>`s and inline `tokens.css` (10 remote URLs today), drop body-text webfonts, then
+    inline SVG icons (most likely refusal; warn-only, so a refusal costs a name plus a TODO and not the
+    run), then a `widthClass` per screen in the manifest.
 
 - [ ] T2 Validator: contract as executable checks
   - Blocked by: T1

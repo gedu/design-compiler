@@ -24,7 +24,6 @@ Severity decides what happens:
 | css-external | a \`<link rel=stylesheet>\` or an \`@import\` | inline the CSS into the file |
 | remote-resource | any network request attempted with the network blocked | inline the asset or replace it with a placeholder |
 | webfont-remote | an \`@font-face\` with a remote src | use the platform font stack |
-| icon-font | an icon drawn from a font glyph | replace with inline SVG |
 | js-dependent-paint | the frame renders differently with JavaScript disabled | render the first paint statically |
 | dark-only-via-js | dark theme unreachable through \`prefers-color-scheme\` | add the media query |
 | absolute-layout | \`position: absolute\` or \`fixed\` on an element with siblings that are not its own overlay | use flex or grid |
@@ -32,6 +31,7 @@ Severity decides what happens:
 | animation-required | a state only reachable through an animation or a transition end | render each state as its own markup |
 | pseudo-content | \`::before\` or \`::after\` carrying text or an icon | make it a real node |
 | frame-width-unknown | the manifest has no width for this frame | declare it; the capture viewport depends on it |
+| manifest-incomplete | the manifest names no states for a frame, or omits the design system or the seed it claims a palette came from | declare the design system, the seed and the states of every frame |
 | lorem-ipsum | placeholder copy detected | use the real strings |
 | reflow-detected | the layout changed between the declared width and the capture width | fix the width and re-export |
 | ir-schema-mismatch | an IR file whose major version the emitter does not support | regenerate the IR or upgrade the emitter; never read it anyway |
@@ -40,6 +40,7 @@ Severity decides what happens:
 
 | Code | Detect | Emission |
 | --- | --- | --- |
+| icon-font | an icon drawn from a font glyph instead of inline SVG | reference the icon by \`data-icon\` name with a \`// TODO: icon asset\` marker; the converter never authors path data |
 | component-unlabeled | repeated structure without \`data-component\` | name derived from the structure, said out loud in the file header |
 | component-name-invalid | a \`data-component\` value that is not a valid identifier after camelCase | keep the derived name and list it in the rename report |
 | state-variation-unstable | instances of one component differ structurally, not only in values | every difference becomes a parameter or a conditional, and the group is listed for review |
@@ -57,6 +58,8 @@ Severity decides what happens:
 | grid-min-undeclared | a grid with no \`data-grid-min\` | derive from the captured track width, comment that it is measured not authored |
 | scroll-undeclared | a scrollable region with no \`data-scroll\` | emit the scroll modifier, warn that laziness was not requested |
 | callback-inferred | a clickable with no \`data-action\` or label | emit the callback with a TODO on its name |
+| prop-undeclared | text that differs between instances of one component but carries no \`data-prop\` and has no \`data-props\` schema entry | add \`data-prop="<name>"\` to the varying text, or declare it in the prop schema |
+| brief-missing | no decisions brief at the configured path, so invented values stay invisible | add the brief listing decisions and invented values |
 | icon-vector-inline | an inline SVG emitted as generated paths from the input's own path data because no icon library is configured | info if the set is small, warn above about ten glyphs |
 | icon-name-assumed | a glyph font icon whose \`data-icon\` name was matched to a standard symbol, but the library is absent in the target project | emit the reference with a comment naming the dependency to add; never fabricate path data |
 | icon-unnamed | a glyph font icon with no \`data-icon\`: nothing to look the asset up by | placeholder box at the measured size, literal glyph in a comment, \`// TODO: icon asset\` |
@@ -68,6 +71,61 @@ Severity decides what happens:
 | tooltip-needs-state | a tooltip that cannot exist without state | comment only, do not emit |
 | theme-two-schemes | dark emitted as a second scheme where a mode was expected | normal on Compose and RN; report so the design handoff matches the code |
 | preview-needs-inspection-guard | preview-only code that would run at runtime | wrap in \`LocalInspectionMode\` |
+
+## Where this catalog stands against a real export
+
+The contract codes in the two tables above are the ones \`rules/contract-rules.json\` references; three of
+them (\`manifest-incomplete\`, \`brief-missing\`, \`prop-undeclared\`) are added here in the same change that
+added their rows, and no row of the table points at a code that is not in this catalog. That pairing
+is the maintenance rule: a row may not invent a code, and a code may not exist without a row that
+makes it fire. What a check has never been able to satisfy is not a passing check, it is an untested
+one, and task T4 is what turns these rows from intent into evidence.
+
+Severity is decided here, not in the rule table, and the icon family is \`warn\` on purpose: the current
+export draws every icon from \`Material Symbols Outlined\` (\`icon-font\` moved out of the error table for
+that reason), and an error would block a design that is otherwise compilable.
+
+Seventeen codes have **no reachable positive case yet**: no rule row that a design tool can actually
+write measures \`present\` for them on \`fixtures/reference\`. A \`present\` that only a \`runtime\` row can
+produce does not count as a positive case for a contract code, because it proves the runtime emitted
+something, not that the contract can be satisfied. Treat these checks as untested, not as passing:
+
+| Code | Why it is untested rather than passing |
+| --- | --- |
+| component-unlabeled | 0 \`data-component\` anywhere in the export, so the detector only ever takes its degradation path and its silent-success path has never run |
+| dark-only-via-js | \`@media (prefers-color-scheme: dark)\` appears 0 times in the templates and in \`tokens.css\`; dark reaches the page through a class and \`?theme=dark\` |
+| elevation-missing | no \`data-elevation\` and no \`box-shadow\` in the export, so neither the hit nor the clean case has been observed |
+| grid-min-undeclared | grids exist (\`display: grid\` in \`Home.dc.html\` and \`Mini Jetcaster.dc.html\`) and carry no \`data-grid-min\`, so only the failure side is exercised |
+| icon-font, icon-unnamed | 0 inline \`<svg>\`, 17 glyph-font spans, 0 \`data-icon\`: the warn fires, but no conforming icon has ever passed it |
+| absolute-layout | \`position: absolute\` occurs twice, neither a declared overlay, so the rule's allowed case is unproven |
+| remote-resource | 10 remote URLs across 5 templates; the check has only ever seen failures, and the vendor lock is what makes a clean run possible |
+| scroll-undeclared, state-variation-unstable, style-off-scale | the signals they compare (\`data-scroll\`, \`data-state\`, a type-role match against \`tokens.json\`) have no annotated input to compare against yet |
+| component-name-invalid | no \`data-component\` value exists to validate, only the frame ids of the board, so both the accept and the reject path are unwritten |
+| prop-undeclared | text varies between instances through \`{{ }}\` placeholders, which the prop schema already names; the unmarked-literal case it targets has not been seen yet |
+| css-external, animation-required, frame-width-unknown, reflow-detected | each is \`violated\` on every author or tool-behavior row behind it, and the only \`present\` measurement comes from a runtime row (\`helmet\`, \`style-*\`, \`dc-import\`, \`?frame=\`), which is a workaround the pipeline uses, not a passing export |
+| js-dependent-paint, callback-inferred | excluded from the count above: they are reached by runtime rows (\`placeholder-syntax\`, \`x-dc\`, \`prop-schema-declared\`) whose \`measured\` value only reports that the runtime emits the mechanism, so neither code has a writable row to prove it can pass |
+
+Every other writable contract code (11 of them: \`brief-missing\`, \`clip-missing\`, \`color-alpha-of-role\`,
+\`color-literal\`, \`lorem-ipsum\`, \`manifest-incomplete\`, \`pseudo-content\`, \`tokens-incomplete-scheme\`,
+\`tokens-missing\`, \`viewport-units\`, \`webfont-remote\`) has at least one writable rule row measured
+\`present\` on the export, so the input can already satisfy it and the check can be seen declining to
+fire. That is the distinction this section exists to keep honest: 11 contract codes have been seen
+saying "fine", 17 have only ever complained, and a check that has only complained has never been shown
+to be able to pass.
+
+Two groups of codes are deliberately outside the \`rules/contract-rules.json\` table, and their absence is
+not drift: \`tokens-role-name-invalid\` and \`color-unresolved\` are token-file and extraction lookups rather
+than something a design tool writes, and everything emission-side (\`radius-off-ladder\`,
+\`radius-per-corner-in-card\`, \`box-model-border-padding\`, \`margin-collapse-applied\`, \`gap-both-axes\`,
+\`grid-column-count-fixed\`, \`icon-vector-inline\`, \`icon-name-assumed\`, \`shadow-translated\`,
+\`safe-area-baked\`, \`fixed-size-on-text\`, \`text-transform-baked\`, \`skeleton-invented\`,
+\`weight-without-font\`,
+\`tooltip-needs-state\`, \`theme-two-schemes\`, \`preview-needs-inspection-guard\`, \`elevation-off-ladder\`,
+\`ir-schema-mismatch\`) describes what an emitter did with a node, or what the target project can or
+cannot supply, a fact no input file can state. \`weight-without-font\` is in that group because spotting
+a weight above regular is easy in the input and pointless there: it only matters once a target's
+bundled fonts are known, which is target configuration, not design. Those
+codes are set by an emitter or by second-pass IR validation, not by a contract row.
 
 ## Report shape
 
