@@ -63,6 +63,9 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 
 | Path | What |
 | --- | --- |
+| tools/probe.mjs | what a real export actually is, re-measured: `node tools/vendor.mjs` once, then `node tools/probe.mjs` |
+| tools/serve.mjs | loopback static server for an export, path-confined to one directory |
+| docs/probe-report.md | generated answers: transport, frame isolation, determinism, missing contract attributes |
 | spec/01-input-contract.md | what the export must contain, machine checkable |
 | spec/02-ir.md | the intermediate representation, field by field |
 | spec/03-extraction.md | reading the DOM, computed-style rules, ordering |
@@ -108,3 +111,7 @@ exchange it provides a prop schema (`data-props`), a `MANIFEST.json` with screen
 Two risks, and the tasks that retire them: whether Claude Design can honor a markup contract (T4,
 needs a human round trip), and whether resolved computed style is enough to emit code that looks like
 the design (T0 plus T5, no human needed). SwiftUI has no mapping spec yet; that is T11.
+
+T0 is done. `docs/probe-report.md` holds the measured answers, the headline being that materializing
+a frame needs a loopback server rather than a `file://` URL, and that the export carries none of the
+contract attributes the prompt has to ask for.

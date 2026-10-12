@@ -139,9 +139,15 @@ const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/wof
 // What is vendored comes from .vendor/vendor-lock.json, written by tools/vendor.mjs. One source of
 // truth: a new remote dependency means a new row there, and a run that reports it as blocked until
 // it exists. Nothing is ever fetched during a conversion.
-const LOCK = existsSync(join(VENDOR, 'vendor-lock.json'))
-  ? JSON.parse(readFileSync(join(VENDOR, 'vendor-lock.json'), 'utf8'))
-  : { scripts: {}, fonts: {}, stylesheets: {} };
+const LOCK_PATH = join(VENDOR, 'vendor-lock.json');
+if (!existsSync(LOCK_PATH)) {
+  // Fail before launching a browser: with no lock every third-party request would be reported as
+  // blocked, which looks exactly like "this export depends on something new" and would send someone
+  // hunting a dependency change that does not exist.
+  console.error('no .vendor/vendor-lock.json: run `node tools/vendor.mjs` first (it needs network once).');
+  process.exit(1);
+}
+const LOCK = JSON.parse(readFileSync(LOCK_PATH, 'utf8'));
 const VENDORED = new Map();
 for (const [u, v] of Object.entries(LOCK.scripts || {})) VENDORED.set(u, join(ROOT, v.local));
 for (const [u, v] of Object.entries(LOCK.fonts || {})) VENDORED.set(u, join(ROOT, v.local));
