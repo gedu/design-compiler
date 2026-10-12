@@ -1,0 +1,92 @@
+{
+  "_why": "Prompt text as data (spec/08, task T3). tools/prompt.mjs assembles the document a human pastes into Claude Design from this file plus rules/contract-rules.json, so the prompt and the validator cannot drift. Reasoning prose stays in spec/08; this file is the normative text.",
+  "_topics_how": "A topic is one statement the prompt makes about a subject, shared by every target that declares it. Each target lists its topics and states each one verbatim in claims, so two selected targets claiming a topic either agree word for word or the assembly is refused instead of concatenated: a subject can never appear twice in the document with two different answers. A claim that is not one of the block's own lines is a data error, because the statement would then hide from the cross-check. Engine-specific lines (which layout system this target has) deliberately carry no topic: they are scoped to the target's own heading and are allowed to differ, which is the point of a target block.",
+  "targetAwareness": "Target awareness: this design will be converted to {targets} by a tool, not read by a human designer. The TARGET RULES below are not preferences, they are capability limits: a design that needs a capability a target lacks must be redesigned, not annotated. Where several targets are named, the design has to work on all of them, so a capability only one target has is a capability this design may not use.",
+  "sharedHeading": "TARGET RULES shared by every target named above. They are listed once, not once per target.",
+  "targets": [
+    {
+      "id": "compose",
+      "label": "Compose / Compose Multiplatform",
+      "topics": ["clipping", "elevation", "fonts", "grid", "icons", "safe-area", "states", "text-overflow", "units"],
+      "claims": {
+        "clipping": "Corner clipping does not come free: if a rounded container holds a child with its own background, say which shape the child must use.",
+        "elevation": "Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.",
+        "fonts": "Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.",
+        "grid": "A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.",
+        "icons": "Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.",
+        "safe-area": "Safe area insets are a runtime value. Never bake status bar or notch padding into the design: mark the region with data-region=\"top-bar\" and let the code add the insets.",
+        "states": "A state is a parameter, not a separate frame: show every state you want compiled, and reach no state through hover alone, because a touch target has none.",
+        "text-overflow": "Text that can run long needs a declared line limit: give the maximum line count for every text block that can overflow.",
+        "units": "Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets."
+      },
+      "block": "- Layout is Row, Column, Box, FlowRow and lazy lists or grids. There is no CSS Grid, no margin and no box model: alignment comes from Arrangement and Alignment, spacing from padding and from spacedBy between siblings.\n- Surfaces come in container tiers (surfaceContainer through surfaceContainerHighest). Separate regions with a tier, never with alpha.\n- Desktop, iOS and Android share one code path. Anything that needs touch-only or mouse-only input must be labeled.\n- A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.\n- Corner clipping does not come free: if a rounded container holds a child with its own background, say which shape the child must use.\n- Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets.\n- Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.\n- Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.\n- Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.\n- Text that can run long needs a declared line limit: give the maximum line count for every text block that can overflow.\n- A state is a parameter, not a separate frame: show every state you want compiled, and reach no state through hover alone, because a touch target has none.\n- Safe area insets are a runtime value. Never bake status bar or notch padding into the design: mark the region with data-region=\"top-bar\" and let the code add the insets."
+    },
+    {
+      "id": "react-native",
+      "label": "React Native",
+      "topics": ["elevation", "fonts", "grid", "icons", "safe-area", "shadows", "states", "text-overflow", "units"],
+      "claims": {
+        "elevation": "Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.",
+        "fonts": "Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.",
+        "grid": "A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.",
+        "icons": "Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.",
+        "safe-area": "Safe area insets are a runtime value. Never bake status bar or notch padding into the design: mark the region with data-region=\"top-bar\" and let the code add the insets.",
+        "shadows": "A shadow is platform-specific work: prefer a surface tier, and where a shadow is unavoidable say which platform carries it.",
+        "states": "A state is a parameter, not a separate frame: show every state you want compiled, and reach no state through hover alone, because a touch target has none.",
+        "text-overflow": "Text that can run long needs a declared line limit: give the maximum line count for every text block that can overflow.",
+        "units": "Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets."
+      },
+      "block": "- Layout is Yoga: flex, with no grid container, no wrap-heavy layout and no subgrid.\n- No backdrop-filter, no clip-path, no blend modes and no CSS pseudo elements.\n- A font weight above regular renders only if the font file is bundled. Name every non-regular weight and expect a review.\n- A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.\n- Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets.\n- Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.\n- A shadow is platform-specific work: prefer a surface tier, and where a shadow is unavoidable say which platform carries it.\n- Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.\n- Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.\n- Safe area insets are a runtime value. Never bake status bar or notch padding into the design: mark the region with data-region=\"top-bar\" and let the code add the insets.\n- Text that can run long needs a declared line limit: give the maximum line count for every text block that can overflow.\n- A state is a parameter, not a separate frame: show every state you want compiled, and reach no state through hover alone, because a touch target has none."
+    },
+    {
+      "id": "react-web",
+      "label": "React web",
+      "topics": ["fonts", "grid", "icons", "units"],
+      "claims": {
+        "fonts": "Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.",
+        "grid": "A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.",
+        "icons": "Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.",
+        "units": "Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets."
+      },
+      "block": "- This target keeps CSS layout: it may use CSS Grid and flexbox and the converter emits them as CSS. When other targets are named above, the layout must still be one they can express.\n- Prefer the component library's own surface and typography props over raw CSS. Name the library in the brief: @material/web, MUI, or plain.\n- Keep every color as a custom property from the token file.\n- A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.\n- Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets.\n- Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.\n- Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow."
+    },
+    {
+      "id": "swiftui",
+      "label": "SwiftUI",
+      "topics": ["clipping", "elevation", "fonts", "grid", "icons", "safe-area", "shadows", "states", "text-overflow", "units"],
+      "claims": {
+        "clipping": "Corner clipping does not come free: if a rounded container holds a child with its own background, say which shape the child must use.",
+        "elevation": "Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.",
+        "fonts": "Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.",
+        "grid": "A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.",
+        "icons": "Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.",
+        "safe-area": "Safe area insets are a runtime value. Never bake status bar or notch padding into the design: mark the region with data-region=\"top-bar\" and let the code add the insets.",
+        "shadows": "A shadow is platform-specific work: prefer a surface tier, and where a shadow is unavoidable say which platform carries it.",
+        "states": "A state is a parameter, not a separate frame: show every state you want compiled, and reach no state through hover alone, because a touch target has none.",
+        "text-overflow": "Text that can run long needs a declared line limit: give the maximum line count for every text block that can overflow.",
+        "units": "Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets."
+      },
+      "block": "- Layout is stacks and grids: VStack, HStack, ZStack, LazyVStack, LazyVGrid and Grid. There is no CSS Grid and no box model, so a gap is padding or spacing and never a margin.\n- Text carries a text style rather than a fixed point size, so any string can grow with the user's setting: let containers wrap instead of clip.\n- A color, a font or a shape this design does not name has no name in the code, so name it in the brief.\n- The code this design becomes has not been written for this target yet: treat every rule here as a limit to design around, not as a promise about an API.\n- A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.\n- Corner clipping does not come free: if a rounded container holds a child with its own background, say which shape the child must use.\n- Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets.\n- Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.\n- A shadow is platform-specific work: prefer a surface tier, and where a shadow is unavoidable say which platform carries it.\n- Icons are named whatever draws them: put data-icon=\"ic_name\" on every icon and prefer inline SVG with fill=\"currentColor\", because a glyph font can be named but never converted.\n- Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.\n- Safe area insets are a runtime value. Never bake status bar or notch padding into the design: mark the region with data-region=\"top-bar\" and let the code add the insets.\n- Text that can run long needs a declared line limit: give the maximum line count for every text block that can overflow.\n- A state is a parameter, not a separate frame: show every state you want compiled, and reach no state through hover alone, because a touch target has none."
+    }
+  ],
+  "contractHeading": "CONTRACT REQUIREMENTS. Every line below is checked on what you export, and a miss is a failure reported back to you.",
+  "adviceHeading": "DESIGN FOR CONVERTIBILITY. Not contract requirements: these cost nothing and make the generated code better.",
+  "advice": "- Ask for one component and its states, not one frame per state. A state is a parameter.\n- Show the empty, loading and error variants. A design that skips them becomes code that crashes on the first empty list.\n- Use the longest realistic string, not the prettiest one. Truncation is a design decision and it is cheapest while designing.\n- Give two width classes or more for anything that will run in a resizable window.\n- Say in the brief which decisions you made that a reader cannot see in the markup.",
+  "decisionsHeading": "DECISIONS FILE. Emit this machine-readable file next to the frames, not only prose.",
+  "decisionsBody": "The converter reads it instead of guessing, so a component's props arrive as input rather than as a guess about which text varies. When it disagrees with the markup, the markup wins and the disagreement is reported: markup is what was looked at, this file is what was claimed.",
+  "decisionsExample": {
+    "components": {
+      "podcast-card": {
+        "states": [{ "name": "subscribed", "kind": "boolean" }],
+        "props": [
+          { "name": "title", "type": "string" },
+          { "name": "author", "type": "string" }
+        ],
+        "actions": [{ "name": "onSubscribeClick", "evidence": "data-action=subscribe" }],
+        "notes": "cover is a placeholder drawn from a container color, no artwork"
+      }
+    },
+    "invented": ["card min height 200px, not in the spec"],
+    "open": ["does the now playing bar overlay the list or push it?"]
+  }
+}

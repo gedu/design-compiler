@@ -187,13 +187,55 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     the report. Tests run on fixtures hand-annotated to the contract, so validator coverage does not
     wait for T4. A check that no real export can satisfy is a bug in the check, found by T4.
 
-- [ ] T3 Prompt builder: deterministic header assembly
+- [x] T3 Prompt builder: deterministic header assembly
   - Blocked by: T1
   - Seams: golden `prompt.txt` per target combination
   - spec/08 as data, not prose: shared header plus exactly one block per chosen target, written to a
     file the human pastes into Claude Design. Assembler fails rather than concatenates if two target
     blocks disagree. The contract annotation list is generated from the same table the validator
     reads, so prompt and validator cannot drift: one rule, one row, checked in both directions.
+  - **Outcome, 2026-10-12.** `node tools/prompt.mjs --target compose --target react-native --out
+    out/DESIGN-PROMPT.md` writes the document plus an `out/DESIGN-PROMPT.md.json` sidecar (sorted
+    targets, sha256 of both rule files, tool version: no timestamp, no path). Prompt text is data:
+    `rules/target-blocks.json` holds the target blocks, the shared-statement heading, the advice and
+    the decisions example; the 37 contract requirements come from `rules/contract-rules.json` rows
+    with `prompt: "ask"`, sorted by rule id so appending a row cannot reorder a prompt nobody
+    re-reads. spec/08 now says where text lives and why, and no longer restates block prose -- the
+    one thing its own maintenance section warned about.
+  - **"Blocks must never disagree" became a check, and the check changed the data.** Each target
+    declares the `topics` its block speaks about and the `claims` sentence per topic; the assembler
+    refuses (exit 3) when two selected targets state a shared topic differently, and a claim that is
+    not a verbatim line of its own block is a data error (exit 2), because that is how a statement
+    would hide from the comparison. Forcing all four targets through one sentence per topic exposed
+    two that were never cross-target truths: "there is no CSS Grid" (false for React web) and "icons
+    are named vectors, never a font" (a refusal the contract itself records as acceptable). Both
+    topics now carry what is true of every target -- a grid is a declared decision (`data-grid-min`),
+    an icon is named whatever draws it (`data-icon`) -- and each target's own layout engine stays an
+    untopiced line under its own heading, where differing is the point. A shared statement is emitted
+    once, and the run says which topics it deduplicated.
+  - Refusal paths, one line on stderr each, nothing written: exit 3 for unknown target, zero targets,
+    a target twice, or a topic two targets disagree on; exit 2 for a bad call or a malformed data
+    file. Exit 3 means "this prompt would lie to the design tool", exit 2 means "you or the table are
+    wrong" -- collapsing them would hide which one a human can actually fix.
+  - `node --test 'tests/*.test.mjs'` (18 tests, node:test and node:assert only, no new dependency):
+    goldens for compose-only and compose+react-native, byte-identical rerun, sidecar shape, every
+    `ask` row present and every `silent` row absent, id order proven against a JSON order that
+    differs, no repository locator or rule id in the output, ASCII over the whole document, and the
+    refusal paths including two invented topic collisions run against temporary copies of the blocks
+    file. Goldens regenerate only via `node tests/prompt.test.mjs --update`.
+  - **Adopted the runner with this task, and a caveat about it:** `node --test tests/` does not work
+    on node 24.18 -- a bare directory argument is loaded as a module and fails with `Cannot find
+    module .../tests`. The glob form is what `npm test` uses. Spec'ed SwiftUI block says in the
+    document itself that no verified mapping exists yet for that target (T11 owns spec/12).
+  - **First-reader notes on generated wording, for T4 to fix in the table:** the 37 requirements
+    arrive as an unordered wall because sorting by id scatters topics that belong together (three
+    icon rows, four token-file rows, three remote-resource rows land apart); `brief-decisions-file`
+    and `manifest-frames-declared` both say "the decisions file described below" while the file is
+    described 60 lines later; `icon-inline-svg` and `icon-glyph-font-emitted` ask for the same SVG in
+    two adjacent bullets with different phrasing; and `elevation-declared` repeats the
+    data-elevation sentence a third time after the shared target rules already said it. Fixing this
+    means changing `ask` text and probably adding a grouping key to the table, which is a rule-table
+    decision and therefore T4's, not T3's.
 
 - [ ] T4 The loop: a fresh export validates clean
   - Blocked by: T2, T3

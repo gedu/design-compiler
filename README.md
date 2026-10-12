@@ -65,6 +65,10 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | --- | --- |
 | tools/probe.mjs | what a real export actually is, re-measured: `node tools/vendor.mjs` once, then `node tools/probe.mjs` |
 | tools/serve.mjs | loopback static server for an export, path-confined to one directory |
+| tools/prompt.mjs | assemble the Claude Design prompt: `node tools/prompt.mjs --target compose --out out/DESIGN-PROMPT.md` |
+| rules/contract-rules.json | the normative contract table: prompt and validator read the same rows |
+| rules/target-blocks.json | target prompt text as data, with the topic cross-check the assembler runs |
+| tests/golden/ | the assembled prompts, byte for byte; `npm test` compares, `--update` rewrites |
 | docs/probe-report.md | generated answers: transport, frame isolation, determinism, missing contract attributes |
 | spec/01-input-contract.md | what the export must contain, machine checkable |
 | spec/02-ir.md | the intermediate representation, field by field |
