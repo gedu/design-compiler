@@ -7,7 +7,17 @@
     {
       "id": "compose",
       "label": "Compose / Compose Multiplatform",
-      "topics": ["clipping", "elevation", "fonts", "grid", "icons", "safe-area", "states", "text-overflow", "units"],
+      "topics": [
+        "clipping",
+        "elevation",
+        "fonts",
+        "grid",
+        "icons",
+        "safe-area",
+        "states",
+        "text-overflow",
+        "units"
+      ],
       "claims": {
         "clipping": "Corner clipping does not come free: if a rounded container holds a child with its own background, say which shape the child must use.",
         "elevation": "Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.",
@@ -24,7 +34,17 @@
     {
       "id": "react-native",
       "label": "React Native",
-      "topics": ["elevation", "fonts", "grid", "icons", "safe-area", "shadows", "states", "text-overflow", "units"],
+      "topics": [
+        "elevation",
+        "fonts",
+        "grid",
+        "icons",
+        "safe-area",
+        "shadows",
+        "states",
+        "text-overflow",
+        "units"
+      ],
       "claims": {
         "elevation": "Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.",
         "fonts": "Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.",
@@ -41,7 +61,12 @@
     {
       "id": "react-web",
       "label": "React web",
-      "topics": ["fonts", "grid", "icons", "units"],
+      "topics": [
+        "fonts",
+        "grid",
+        "icons",
+        "units"
+      ],
       "claims": {
         "fonts": "Text size is a user setting, so a layout that only works at one text size is a bug: check every row where text can grow.",
         "grid": "A grid is a decision and not a layout feature: wherever this design shows a two-dimensional layout, declare its minimum cell width with data-grid-min.",
@@ -53,7 +78,18 @@
     {
       "id": "swiftui",
       "label": "SwiftUI",
-      "topics": ["clipping", "elevation", "fonts", "grid", "icons", "safe-area", "shadows", "states", "text-overflow", "units"],
+      "topics": [
+        "clipping",
+        "elevation",
+        "fonts",
+        "grid",
+        "icons",
+        "safe-area",
+        "shadows",
+        "states",
+        "text-overflow",
+        "units"
+      ],
       "claims": {
         "clipping": "Corner clipping does not come free: if a rounded container holds a child with its own background, say which shape the child must use.",
         "elevation": "Elevation is a declared step, data-elevation with one of 0, 1, 3, 6, 8 or 12, and never a drawn box-shadow.",
@@ -77,16 +113,123 @@
   "decisionsExample": {
     "components": {
       "podcast-card": {
-        "states": [{ "name": "subscribed", "kind": "boolean" }],
-        "props": [
-          { "name": "title", "type": "string" },
-          { "name": "author", "type": "string" }
+        "states": [
+          {
+            "name": "subscribed",
+            "kind": "boolean"
+          }
         ],
-        "actions": [{ "name": "onSubscribeClick", "evidence": "data-action=subscribe" }],
+        "props": [
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "author",
+            "type": "string"
+          }
+        ],
+        "actions": [
+          {
+            "name": "onSubscribeClick",
+            "evidence": "data-action=subscribe"
+          }
+        ],
         "notes": "cover is a placeholder drawn from a container color, no artwork"
       }
     },
-    "invented": ["card min height 200px, not in the spec"],
-    "open": ["does the now playing bar overlay the list or push it?"]
-  }
+    "invented": [
+      "card min height 200px, not in the spec"
+    ],
+    "open": [
+      "does the now playing bar overlay the list or push it?"
+    ]
+  },
+  "topicOrder": [
+    [
+      "tokens",
+      "Token file"
+    ],
+    [
+      "manifest",
+      "Manifest"
+    ],
+    [
+      "decisions",
+      "Decisions file"
+    ],
+    [
+      "css",
+      "CSS and self-containment"
+    ],
+    [
+      "network",
+      "No network"
+    ],
+    [
+      "fonts",
+      "Fonts"
+    ],
+    [
+      "colors",
+      "Colors and tokens"
+    ],
+    [
+      "text",
+      "Text roles"
+    ],
+    [
+      "units",
+      "Units and sizes"
+    ],
+    [
+      "layout",
+      "Layout"
+    ],
+    [
+      "grid",
+      "Grids"
+    ],
+    [
+      "scroll",
+      "Scrolling regions"
+    ],
+    [
+      "regions",
+      "Named regions"
+    ],
+    [
+      "elevation",
+      "Elevation"
+    ],
+    [
+      "effects",
+      "Effects with no equivalent"
+    ],
+    [
+      "icons",
+      "Icons"
+    ],
+    [
+      "components",
+      "Components and props"
+    ],
+    [
+      "states",
+      "States"
+    ],
+    [
+      "markup",
+      "Markup the converter can read"
+    ],
+    [
+      "naming",
+      "Names"
+    ],
+    [
+      "copy",
+      "Content"
+    ]
+  ],
+  "topicOrderHow": "Order is a reading order for a human and a design tool, so it is declared and never derived from a sort. Every topic a prompt-participating row carries must appear here; a topic missing from this list is a usage error (exit 2), which is what stops a new row from silently vanishing from the document."
 }

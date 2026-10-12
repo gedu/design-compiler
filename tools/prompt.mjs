@@ -126,6 +126,11 @@ for (const t of selected) {
       badData(`target ${t.id} states something about ${topic} without declaring the topic`);
 }
 
+// Reading order for the contract section: declared in the data, never derived from a sort, because
+// an export is read top-to-bottom by someone who has to act on it.
+const TOPIC_ORDER = new Map((blocks.topicOrder || []).map(([id, heading]) => [id, heading]));
+if (TOPIC_ORDER.size === 0) badData('blocks file has no topicOrder, so requirements have no reading order');
+
 // ---- cross-check shared topics (exit 3, the rule spec/08 asked for: two blocks that disagree must
 // never be concatenated) ----
 const claimCount = new Map();
@@ -150,11 +155,15 @@ const sharedSet = new Set(shared);
 const speakersOf = (topic) => selected.filter((t) => t.topics.includes(topic));
 
 // ---- contract requirements, generated from the rows the validator will read ----
-const asked = rules
-  .filter((r) => r.prompt === 'ask')
-  .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-for (const r of asked)
+const asked = rules.filter((r) => r.prompt === 'ask');
+for (const r of asked) {
   if (typeof r.ask !== 'string' || !r.ask) badData(`rule ${r.id} says prompt ask with no ask text`);
+  // A row that speaks in the prompt must declare its topic and that topic must have a place in the
+  // reading order, or the row would silently disappear from the document someone pastes.
+  if (!r.topic) badData(`rule ${r.id} is asked in the prompt but declares no topic`);
+  if (!TOPIC_ORDER.has(r.topic))
+    badData(`rule ${r.id} has topic "${r.topic}", which topicOrder does not place`);
+}
 if (asked.length === 0) refuse('the rules file asks for nothing, so the prompt would be all advice');
 
 // ---- assembly: body first line is prompt text, no header and no metadata ----
@@ -173,7 +182,24 @@ if (shared.length)
     blocks.sharedHeading + '\n' + shared.map((topic) => '- ' + speakersOf(topic)[0].claims[topic]).join('\n')
   );
 
-emit(`${blocks.contractHeading}\n${asked.map((r) => '- ' + r.ask).join('\n')}`);
+// Group by topic in the declared order, rows within a topic by rule id: stable across runs and
+// across appends, while related asks stay together for the reader.
+const rank = new Map([...TOPIC_ORDER.keys()].map((id, i) => [id, i]));
+const byTopic = new Map();
+for (const r of asked) {
+  if (!byTopic.has(r.topic)) byTopic.set(r.topic, []);
+  byTopic.get(r.topic).push(r);
+}
+const contractBody = [...byTopic.entries()]
+  .sort((a, b) => rank.get(a[0]) - rank.get(b[0]))
+  .map(([topic, rows]) => {
+    const asks = [...rows]
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map((r) => '- ' + r.ask);
+    return `${TOPIC_ORDER.get(topic)}\n${asks.join('\n')}`;
+  })
+  .join('\n\n');
+emit(`${blocks.contractHeading}\n\n${contractBody}`);
 emit(`${blocks.adviceHeading}\n${blocks.advice}`);
 emit(
   `${blocks.decisionsHeading}\n${blocks.decisionsBody}\n` +

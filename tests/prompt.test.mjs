@@ -135,29 +135,66 @@ test('sidecar carries provenance and nothing environment-dependent', () => {
 test('every asked rule appears verbatim, every silent one stays out', () => {
   const r = generate(['compose']);
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(askRows.length, 37, 'expected 37 asked rules (25 author + 12 tool-behavior)');
+  // Counted from the data, not hardcoded: the number a human remembers is the number that rots.
+  assert.equal(askRows.length, rules.filter((x) => x.prompt === 'ask').length);
+  assert.ok(askRows.length > 30, 'the prompt should carry most of the contract');
   for (const row of askRows)
     assert.ok(r.body.includes(row.ask), `asked rule ${row.id} is missing from the prompt`);
   for (const ask of silentAsks)
     assert.ok(!r.body.includes(ask), `silent rule text leaked: ${ask.slice(0, 40)}`);
 });
 
-test('requirement lines follow rule id order, not JSON order', () => {
+test('requirements are grouped by topic in the declared order, ids ascending within a topic', () => {
   const r = generate(['compose']);
   assert.equal(r.status, 0, r.stderr);
-  const positions = askRows.map((row) => r.body.indexOf('- ' + row.ask));
+  const rank = new Map(baseBlocks.topicOrder.map(([id], i) => [id, i]));
+  const at = new Map(askRows.map((row) => [row.id, r.body.indexOf('- ' + row.ask)]));
   assert.ok(
-    positions.every((p) => p >= 0),
+    [...at.values()].every((p) => p >= 0),
     'a requirement is not an emitted line'
   );
-  assert.deepEqual(
-    positions,
-    [...positions].sort((a, b) => a - b),
-    'requirements are not emitted in id order'
+
+  // The emitted order is exactly (declared topic order, then id). Comparing the whole sequence is
+  // stronger than checking pairs: any drift in either key shows up.
+  const expected = [...askRows].sort(
+    (a, b) => rank.get(a.topic) - rank.get(b.topic) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
   );
-  // The JSON order differs from id order, so this proves the sort ran rather than passing vacuously.
+  const emitted = [...askRows].sort((a, b) => at.get(a.id) - at.get(b.id)).map((x) => x.id);
+  assert.deepEqual(emitted, expected.map((x) => x.id), 'requirements are not in the grouped order');
+
+  // Both keys are load-bearing and neither may be an accident of the data.
+  const topics = [...new Set(askRows.map((x) => x.topic))];
+  assert.notDeepEqual(topics, [...topics].sort(), 'topic order looks alphabetical, order was ignored');
+  const idSorted = [...askRows].sort((a, b) => (a.id < b.id ? -1 : 1)).map((x) => x.id);
+  assert.notDeepEqual(
+    emitted,
+    idSorted,
+    'output is id-sorted across topics, so grouping did not run'
+  );
   const jsonOrder = rules.filter((x) => x.prompt === 'ask').map((x) => x.id);
-  assert.notDeepEqual(jsonOrder, askRows.map((x) => x.id));
+  assert.notDeepEqual(jsonOrder, idSorted, 'JSON was already id-sorted: the id sort proves nothing');
+});
+
+// Grouping is only safe if a row cannot speak without a place to stand. Both holes are usage errors:
+// a missing topic, and a topic the reading order never placed.
+test('an asked rule missing its topic is a usage error', () => {
+  const broken = rules.map((x, i) => (i === 0 ? { ...x, topic: undefined } : x));
+  const dir = mkdtempSync(join(tmpdir(), 'dc-notopic-'));
+  const rulesPath = join(dir, 'rules.json');
+  writeFileSync(rulesPath, JSON.stringify(broken));
+  const r = generate(['compose'], ['--rules', rulesPath]);
+  assertOneLineFailure(r, 2);
+  assert.match(r.stderr, /topic/);
+});
+
+test('an asked rule whose topic the reading order does not place is a usage error', () => {
+  const broken = rules.map((x, i) => (i === 0 ? { ...x, topic: 'unplaced-topic' } : x));
+  const dir = mkdtempSync(join(tmpdir(), 'dc-badtopic-'));
+  const rulesPath = join(dir, 'rules.json');
+  writeFileSync(rulesPath, JSON.stringify(broken));
+  const r = generate(['compose'], ['--rules', rulesPath]);
+  assertOneLineFailure(r, 2);
+  assert.match(r.stderr, /unplaced-topic/);
 });
 
 test('generated text never references this repository', () => {

@@ -9,7 +9,8 @@
     "fix": "export the tokens alongside the frames",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "tokens"
   },
   {
     "id": "token-file-both-schemes",
@@ -21,7 +22,8 @@
     "fix": "regenerate both schemes from the same seed",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "tokens"
   },
   {
     "id": "token-file-type-scale",
@@ -33,7 +35,8 @@
     "fix": "export a token file with color, typography, shape and spacing blocks",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "tokens"
   },
   {
     "id": "manifest-frames-declared",
@@ -45,7 +48,8 @@
     "fix": "declare the frame in the manifest with its width class",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "manifest"
   },
   {
     "id": "manifest-declares-design-system",
@@ -57,31 +61,34 @@
     "fix": "declare the design system and the seed in the manifest",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "manifest"
   },
   {
     "id": "brief-decisions-file",
     "code": "brief-missing",
     "severity": "warn",
     "owner": "tool-behavior",
-    "ask": "Write a brief listing the values you invented and the decisions a reader cannot see in the markup, as the decisions file described below, not only as prose.",
+    "ask": "Write a decisions.json next to the frames listing the values you invented and the decisions a reader cannot see in the markup; prose alone is not enough.",
     "detect": "The extractor looks for the configured brief path and, when absent, drops the notes section of the emitted code and reports this code.",
     "fix": "add a brief listing decisions and invented values",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "decisions"
   },
   {
     "id": "css-inline-no-external",
     "code": "css-external",
     "severity": "error",
     "owner": "tool-behavior",
-    "ask": "Put every style rule inside a <style> block in the same file. Do not emit <link rel=\"stylesheet\"> or @import for your own CSS.",
+    "ask": "Put every style rule inside a <style> block in the same file: no <link rel=\"stylesheet\"> and no @import for your own CSS. This is about your CSS only; the no-network rule below is a separate requirement.",
     "detect": "The materializer counts link rel=stylesheet and @import occurrences per template and the request router records any stylesheet fetch that leaves the loopback directory.",
     "fix": "inline the CSS into the file",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "css"
   },
   {
     "id": "paint-without-js",
@@ -93,7 +100,8 @@
     "fix": "hand the materializer a frame whose first paint does not need script",
     "measured": "violated",
     "prompt": "silent",
-    "promptNote": "the format needs support.js to build any tree; T4 decides whether the materializer emulates first paint or the rule is dropped"
+    "promptNote": "the format needs support.js to build any tree; T4 decides whether the materializer emulates first paint or the rule is dropped",
+    "topic": "markup"
   },
   {
     "id": "no-remote-image",
@@ -105,19 +113,21 @@
     "fix": "inline the asset or replace it with a placeholder",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "network"
   },
   {
     "id": "no-remote-font",
     "code": "webfont-remote",
     "severity": "error",
     "owner": "tool-behavior",
-    "ask": "Do not load stylesheets from a CDN. If a font is required, say which weight and name it in the brief; body text should use the platform font stack.",
+    "ask": "Do not load any stylesheet or font from a CDN. If a font is genuinely required, name it and its weight in decisions.json.",
     "detect": "The validator checks each stylesheet link and @font-face src for a remote origin, and the font stack actually applied to text nodes comes from the computed-style dump.",
     "fix": "use the platform font stack",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "network"
   },
   {
     "id": "font-stack-platform-default",
@@ -129,7 +139,8 @@
     "fix": "start the font stack with the platform default instead of a remote face",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "fonts"
   },
   {
     "id": "icon-named",
@@ -141,7 +152,8 @@
     "fix": "add data-icon=\"ic_name\" to the element that draws the icon",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "icons"
   },
   {
     "id": "icon-inline-svg",
@@ -153,7 +165,8 @@
     "fix": "replace the glyph with inline SVG path data, or keep the font and expect a name-plus-TODO reference",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "icons"
   },
   {
     "id": "unit-pixel-equals-dp",
@@ -165,7 +178,8 @@
     "fix": "state the size in px so it maps to dp without a scaling table",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "units"
   },
   {
     "id": "frame-fixed-width",
@@ -177,7 +191,8 @@
     "fix": "fix the width and re-export; publish a second frame for the second width class",
     "measured": "violated",
     "prompt": "silent",
-    "promptNote": "one board reflows HomeScreen across width classes while ?frame= isolates one; T4 decides whether the rule becomes per-frame or a non-goal"
+    "promptNote": "one board reflows HomeScreen across width classes while ?frame= isolates one; T4 decides whether the rule becomes per-frame or a non-goal",
+    "topic": "layout"
   },
   {
     "id": "layout-flex-grid-only",
@@ -189,7 +204,8 @@
     "fix": "use flex or grid, or declare the absolute node as an overlay of a named box",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "layout"
   },
   {
     "id": "no-transform-spacing-no-viewport-units",
@@ -201,7 +217,8 @@
     "fix": "use the frame's fixed px width for the size and layout properties for placement",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "units"
   },
   {
     "id": "states-as-markup",
@@ -213,7 +230,8 @@
     "fix": "render each state as its own markup or as a selectable declared state",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "states"
   },
   {
     "id": "no-overflow-clip-blur-gradient",
@@ -225,7 +243,8 @@
     "fix": "use a surface or container color tier instead of a blur, gradient or clip",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "effects"
   },
   {
     "id": "component-root-labeled",
@@ -237,7 +256,8 @@
     "fix": "add data-component=\"kebab-name\" to the component root",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "components"
   },
   {
     "id": "component-name-stable-across-instances",
@@ -249,7 +269,8 @@
     "fix": "give every instance of a component the same data-component value",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "components"
   },
   {
     "id": "state-declared",
@@ -261,19 +282,21 @@
     "fix": "label each state frame with data-state or data-variant",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "states"
   },
   {
     "id": "elevation-declared",
     "code": "elevation-missing",
     "severity": "warn",
     "owner": "author",
-    "ask": "Declare the M3 step on any surface that sits at an elevation: data-elevation with one of 0, 1, 3, 6, 8 or 12. Never draw a box-shadow.",
+    "ask": "Declare data-elevation on any surface that sits at an elevation, with one of 0, 1, 3, 6, 8 or 12.",
     "detect": "The validator flags any node with a computed box-shadow, or any surface whose computed background differs from its parent's by a container tier, that carries no data-elevation.",
     "fix": "add data-elevation=\"0|1|3|6|8|12\" to the surface, and drop the box-shadow",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "elevation"
   },
   {
     "id": "token-role-declared",
@@ -285,7 +308,8 @@
     "fix": "add data-token=\"colorScheme.<role>\" to the element with the colored background",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "colors"
   },
   {
     "id": "text-role-declared",
@@ -297,7 +321,8 @@
     "fix": "add data-role=\"title|subtitle|meta\" to the text node",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "text"
   },
   {
     "id": "color-from-role-property",
@@ -309,7 +334,8 @@
     "fix": "reference the role custom property instead of a value",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "colors"
   },
   {
     "id": "no-literal-hex-outside-tokens",
@@ -321,7 +347,8 @@
     "fix": "move the value into the token file and reference the property",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "colors"
   },
   {
     "id": "dark-reachable-prefers-color-scheme",
@@ -333,7 +360,8 @@
     "fix": "add the prefers-color-scheme media query; a class or query toggle alone is not enough",
     "measured": "violated",
     "prompt": "silent",
-    "promptNote": "no template uses prefers-color-scheme; T4 decides whether the tool learns it or the materializer emulates the scheme"
+    "promptNote": "no template uses prefers-color-scheme; T4 decides whether the tool learns it or the materializer emulates the scheme",
+    "topic": "colors"
   },
   {
     "id": "no-alpha-of-role-or-color-mix",
@@ -345,7 +373,8 @@
     "fix": "use the container or fixed role the design meant",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "colors"
   },
   {
     "id": "no-gradient-background",
@@ -357,7 +386,8 @@
     "fix": "pick a surface or container color tier for the background",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "colors"
   },
   {
     "id": "grid-min-declared",
@@ -369,7 +399,8 @@
     "fix": "add data-grid-min=\"<px>\" to the grid container",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "grid"
   },
   {
     "id": "scroll-region-declared",
@@ -381,7 +412,8 @@
     "fix": "add data-scroll=\"list|grid\" to the scrollable container",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "scroll"
   },
   {
     "id": "region-intent-declared",
@@ -393,7 +425,8 @@
     "fix": "add data-region=\"top-bar|content|now-playing-bar|snackbar\" to the region root",
     "measured": "absent",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "regions"
   },
   {
     "id": "names-kebab-ascii",
@@ -405,7 +438,8 @@
     "fix": "rename the value to ASCII kebab-case",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "naming"
   },
   {
     "id": "real-copy-no-lorem",
@@ -417,7 +451,8 @@
     "fix": "replace the placeholder copy with the real string",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "copy"
   },
   {
     "id": "varying-text-marked-as-prop",
@@ -429,7 +464,8 @@
     "fix": "add data-prop=\"<name>\" to the varying text node",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "components"
   },
   {
     "id": "no-pseudo-element-content",
@@ -441,7 +477,8 @@
     "fix": "make the pseudo element's content a real node",
     "measured": "present",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "markup"
   },
   {
     "id": "placeholder-syntax",
@@ -453,7 +490,8 @@
     "fix": "supply a prop set that resolves every {{ }} placeholder before extraction",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "markup"
   },
   {
     "id": "dynamic-element-x-dc",
@@ -465,7 +503,8 @@
     "fix": "nothing to demand: the extractor reads these after the runtime expands them",
     "measured": "absent",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "markup"
   },
   {
     "id": "conditional-sc-if",
@@ -477,7 +516,8 @@
     "fix": "nothing to demand: reach each state through the query-string prop set",
     "measured": "absent",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "states"
   },
   {
     "id": "repetition-sc-for",
@@ -489,7 +529,8 @@
     "fix": "nothing to demand: label the component root the runtime renders inside",
     "measured": "absent",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "components"
   },
   {
     "id": "composition-dc-import",
@@ -501,7 +542,8 @@
     "fix": "nothing to demand: composition edges are read from the export",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "layout"
   },
   {
     "id": "head-links-helmet",
@@ -513,7 +555,8 @@
     "fix": "nothing to demand here; the links to remove are the remote ones",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "css"
   },
   {
     "id": "interaction-style-attrs",
@@ -525,7 +568,8 @@
     "fix": "nothing to demand: states declared this way are already evidence",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "states"
   },
   {
     "id": "prop-schema-declared",
@@ -537,7 +581,8 @@
     "fix": "nothing to demand: props and callbacks come from the schema when present",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "components"
   },
   {
     "id": "board-one-file-per-project",
@@ -549,7 +594,8 @@
     "fix": "nothing to demand: ?frame= plus the loopback server yields one frame",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "layout"
   },
   {
     "id": "state-via-runtime-script",
@@ -561,7 +607,8 @@
     "fix": "nothing to demand: drive each state with the query-string prop set",
     "measured": "present",
     "prompt": "silent",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "states"
   },
   {
     "id": "no-remote-links-emitted",
@@ -573,7 +620,8 @@
     "fix": "inline the CSS or ship the asset inside the export folder",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "network"
   },
   {
     "id": "icon-glyph-font-emitted",
@@ -584,8 +632,10 @@
     "detect": "The probe counts inline svg occurrences and the validator counts nodes drawing a glyph from an icon font family in the materialized frame.",
     "fix": "replace with inline SVG, or keep the font and expect a name plus TODO",
     "measured": "violated",
-    "prompt": "ask",
-    "promptNote": null
+    "prompt": "silent",
+    "promptNote": "the inline-SVG preference is asked once, by icon-inline-svg; this row stays as the validator diagnostic for a glyph font that arrived anyway",
+    "topic": "icons",
+    "promptCarriedBy": "icon-inline-svg"
   },
   {
     "id": "webfont-body-text-emitted",
@@ -597,6 +647,7 @@
     "fix": "use the platform font stack",
     "measured": "violated",
     "prompt": "ask",
-    "promptNote": null
+    "promptNote": null,
+    "topic": "fonts"
   }
 ]

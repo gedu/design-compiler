@@ -236,6 +236,22 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     data-elevation sentence a third time after the shared target rules already said it. Fixing this
     means changing `ask` text and probably adding a grouping key to the table, which is a rule-table
     decision and therefore T4's, not T3's.
+  - **T3.1, the notes above fixed the same day (inline, not delegated: two writers stalled generating
+    arguments for a 50-row JSON rewrite, and a scripted transform is cheaper than either).** Every
+    row carries a `topic`; the requirements section is grouped under 21 human headings in a reading
+    order declared in `rules/target-blocks.json` as `topicOrder`, never derived from a sort, with ids
+    ascending inside a topic. A topic the order does not place is exit 2, so a new row cannot silently
+    vanish from the document. Asked rows went 37 to 36: `icon-glyph-font-emitted` is now silent, its
+    ask carried by `icon-inline-svg` via `promptCarriedBy`, while the row and its diagnostic stay for
+    the validator. `css-inline-no-external` and `no-remote-links-emitted` stayed both-asked, because
+    "your CSS lives in the file" and "nothing is fetched" are separate obligations; the wording now
+    says so instead of letting a reader satisfy one and stop. `no-remote-font` and
+    `font-stack-platform-default` said "use the platform stack" twice under Fonts and are now the
+    fetch rule and the stack rule. `elevation-declared` states only what the validator checks. The
+    forward reference names `decisions.json`. 20 tests green; goldens regenerated explicitly
+    (+138/-56). `check-contract.mjs` gained the topic and carrier invariants and was caught crashing
+    on a dangling `promptCarriedBy` by its own seeded-defect run, so it now reports one finding and
+    skips the carrier comparisons; verified non-vacuous with 4 failures from 3 seeded defects.
 
 - [ ] T4 The loop: a fresh export validates clean
   - Blocked by: T2, T3

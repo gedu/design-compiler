@@ -23,43 +23,84 @@ TARGET RULES shared by every target named above. They are listed once, not once 
 - Write every length as an absolute px number and nothing else: no em, rem or percent for a layout size, because a relative size has no one meaning across these targets.
 
 CONTRACT REQUIREMENTS. Every line below is checked on what you export, and a miss is a failure reported back to you.
-- Write a brief listing the values you invented and the decisions a reader cannot see in the markup, as the decisions file described below, not only as prose.
-- Write every color as a custom property whose name is a Material role, such as --md-sys-color-primary.
-- Use the same data-component value on every instance of the same component.
-- Put data-component="kebab-name" on the root of every component you expect to become code.
-- Put every style rule inside a <style> block in the same file. Do not emit <link rel="stylesheet"> or @import for your own CSS.
-- Declare the M3 step on any surface that sits at an elevation: data-elevation with one of 0, 1, 3, 6, 8 or 12. Never draw a box-shadow.
-- Set every text run in a stack that starts with the platform default: Roboto, then system sans.
-- Put data-grid-min="140" on every grid container: the minimum cell width is a decision, not something measurable off the rendered tracks.
-- Prefer inline SVG with fill="currentColor" for icons over an icon font. If you must use a glyph font, keep data-icon="name" on every glyph so the icon can still be identified by name.
-- Draw icons as inline SVG with fill="currentColor"; a glyph font cannot be converted, only referenced by name.
-- Put data-icon="ic_name" on every icon, inline SVG or glyph alike: the name is the one thing no one can measure off the screen.
-- Build layouts with flex and grid only. Use position: absolute only for an overlay that sits on top of a box you also declare, and mark the box it overlays.
-- State the design system and the seed color (as #RRGGBB) the palette was generated from in MANIFEST.json.
-- In MANIFEST.json, give every screen its width class in dp and list every frame that appears on the board. A frame the manifest does not name is a frame nobody asked for.
-- Write class names and data-component values as ASCII kebab-case; they become Kotlin and TypeScript identifiers.
-- Never put alpha on a role color, never use color-mix(), and never use opacity to fake a container: use the container tier the design means.
-- Use a flat surface or container color for backgrounds; no gradient background.
-- Keep literal hex values inside the token file and out of the markup: the design body references properties only.
-- Avoid overflow tricks, clip-path, filter: blur() and gradients: no target has a single property for them.
-- Put real information in real nodes: no text or icon carried by ::before or ::after.
-- Do not load stylesheets from a CDN. If a font is required, say which weight and name it in the brief; body text should use the platform font stack.
-- No image may be referenced by URL. Draw artwork from a token color, or inline it as SVG data, so the file renders with the network off.
-- The file must render complete with the network disabled: no <link>, no script src, no font or icon URL pointing outside the export folder.
-- Never use vh, vw, dvh, svh, vmin or vmax for a size, and never use transform to place something.
-- Use the real strings the app will show; never lorem ipsum or placeholder filler.
-- Label the Scaffold-like regions: data-region with top-bar, content, now-playing-bar or snackbar.
-- Put data-scroll="list" or data-scroll="grid" on any region the app scrolls through.
-- Put data-state="..." (or data-variant, data-size) on each state you show, so a state becomes a parameter instead of a twelfth component.
-- Show every state you want compiled as markup the converter can reach, either its own block or a declared state the tool can select. A state that only an animation or a hover reaches is a state no code gets.
-- Mark text you want named in the generated API with data-role="title", "subtitle" or "meta".
+
+Token file
 - Give color.light and color.dark the same set of role names. A role that exists in one scheme and not the other is a bug in the export, not a design choice.
 - Ship a tokens.json next to the frames containing every color role for both schemes plus typography, shape and spacing. No frame may depend on a token that is not in that file.
 - Include the typography, shape and spacing maps in tokens.json, with the exact font size, line height, weight and letter spacing of every type role you used.
-- Put data-token="colorScheme.<role>" on any element whose background is a theme color.
-- Write every length in px and treat 1px as 1dp; no em, rem or percent for layout sizes.
-- Mark every piece of text that varies between instances with data-prop="title", "author" and so on; unmarked copy is welded into the generated component.
+
+Manifest
+- State the design system and the seed color (as #RRGGBB) the palette was generated from in MANIFEST.json.
+- In MANIFEST.json, give every screen its width class in dp and list every frame that appears on the board. A frame the manifest does not name is a frame nobody asked for.
+
+Decisions file
+- Write a decisions.json next to the frames listing the values you invented and the decisions a reader cannot see in the markup; prose alone is not enough.
+
+CSS and self-containment
+- Put every style rule inside a <style> block in the same file: no <link rel="stylesheet"> and no @import for your own CSS. This is about your CSS only; the no-network rule below is a separate requirement.
+
+No network
+- Do not load any stylesheet or font from a CDN. If a font is genuinely required, name it and its weight in decisions.json.
+- No image may be referenced by URL. Draw artwork from a token color, or inline it as SVG data, so the file renders with the network off.
+- The file must render complete with the network disabled: no <link>, no script src, no font or icon URL pointing outside the export folder.
+
+Fonts
+- Set every text run in a stack that starts with the platform default: Roboto, then system sans.
 - Body text must use the platform font stack (Roboto, then system sans). Do not load a webfont for body text from a CDN.
+
+Colors and tokens
+- Write every color as a custom property whose name is a Material role, such as --md-sys-color-primary.
+- Never put alpha on a role color, never use color-mix(), and never use opacity to fake a container: use the container tier the design means.
+- Use a flat surface or container color for backgrounds; no gradient background.
+- Keep literal hex values inside the token file and out of the markup: the design body references properties only.
+- Put data-token="colorScheme.<role>" on any element whose background is a theme color.
+
+Text roles
+- Mark text you want named in the generated API with data-role="title", "subtitle" or "meta".
+
+Units and sizes
+- Never use vh, vw, dvh, svh, vmin or vmax for a size, and never use transform to place something.
+- Write every length in px and treat 1px as 1dp; no em, rem or percent for layout sizes.
+
+Layout
+- Build layouts with flex and grid only. Use position: absolute only for an overlay that sits on top of a box you also declare, and mark the box it overlays.
+
+Grids
+- Put data-grid-min="140" on every grid container: the minimum cell width is a decision, not something measurable off the rendered tracks.
+
+Scrolling regions
+- Put data-scroll="list" or data-scroll="grid" on any region the app scrolls through.
+
+Named regions
+- Label the Scaffold-like regions: data-region with top-bar, content, now-playing-bar or snackbar.
+
+Elevation
+- Declare data-elevation on any surface that sits at an elevation, with one of 0, 1, 3, 6, 8 or 12.
+
+Effects with no equivalent
+- Avoid overflow tricks, clip-path, filter: blur() and gradients: no target has a single property for them.
+
+Icons
+- Draw icons as inline SVG with fill="currentColor"; a glyph font cannot be converted, only referenced by name.
+- Put data-icon="ic_name" on every icon, inline SVG or glyph alike: the name is the one thing no one can measure off the screen.
+
+Components and props
+- Use the same data-component value on every instance of the same component.
+- Put data-component="kebab-name" on the root of every component you expect to become code.
+- Mark every piece of text that varies between instances with data-prop="title", "author" and so on; unmarked copy is welded into the generated component.
+
+States
+- Put data-state="..." (or data-variant, data-size) on each state you show, so a state becomes a parameter instead of a twelfth component.
+- Show every state you want compiled as markup the converter can reach, either its own block or a declared state the tool can select. A state that only an animation or a hover reaches is a state no code gets.
+
+Markup the converter can read
+- Put real information in real nodes: no text or icon carried by ::before or ::after.
+
+Names
+- Write class names and data-component values as ASCII kebab-case; they become Kotlin and TypeScript identifiers.
+
+Content
+- Use the real strings the app will show; never lorem ipsum or placeholder filler.
 
 DESIGN FOR CONVERTIBILITY. Not contract requirements: these cost nothing and make the generated code better.
 - Ask for one component and its states, not one frame per state. A state is a parameter.

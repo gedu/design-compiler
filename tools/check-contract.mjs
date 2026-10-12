@@ -45,6 +45,7 @@ const OWNERS = ['author', 'runtime', 'tool-behavior'];
 const SEVERITIES = ['error', 'warn', 'info'];
 const MEASURED = ['present', 'absent', 'violated', 'unknown'];
 const seen = new Set();
+const ruleById = new Map(rules.map((r) => [r.id, r]));
 for (const r of rules) {
   for (const f of ['id', 'code', 'severity', 'owner', 'detect', 'fix', 'measured'])
     if (!r[f]) fail(`${r.id || '?'}: missing field ${f}`);
@@ -63,11 +64,28 @@ for (const r of rules) {
   if (r.owner === 'runtime' && r.ask) fail(`${r.id}: owner runtime must not carry an ask`);
   // ---- prompt participation ----
   if (!['ask', 'silent'].includes(r.prompt)) fail(`${r.id}: prompt must be ask|silent, got ${r.prompt}`);
+  if (r.topic && !/^[a-z][a-z0-9-]*$/.test(r.topic)) fail(`${r.id}: topic "${r.topic}" must be lowercase kebab`);
   if (r.prompt === 'ask' && !r.ask) fail(`${r.id}: prompt ask requires ask text`);
   if (r.prompt === 'ask' && r.owner === 'runtime')
     fail(`${r.id}: a runtime-owned rule cannot be asked for; it is the mistake T1 exists to prevent`);
   if (r.owner === 'runtime' && r.prompt !== 'silent')
     fail(`${r.id}: runtime-owned rules are always silent`);
+  // Grouping is how the prompt stays readable, so a row that speaks must have a place to land.
+  if (r.prompt === 'ask' && !r.topic) fail(`${r.id}: prompt ask requires a topic for grouping`);
+  // A silent row may be silent because another row carries the ask. That pointer has to resolve,
+  // otherwise the ask exists nowhere and the requirement quietly vanished from the prompt.
+  if (r.promptCarriedBy) {
+    const carrier = ruleById.get(r.promptCarriedBy);
+    // One fail per defect and no crash: a dangling pointer is reported, and the carrier-dependent
+    // checks are skipped because there is nothing to compare against.
+    if (!carrier) fail(`${r.id}: promptCarriedBy points at ${r.promptCarriedBy}, which is not a rule`);
+    else {
+      if (carrier.prompt !== 'ask')
+        fail(`${r.id}: carried by ${r.promptCarriedBy}, which does not carry an ask either`);
+      if (carrier.topic !== r.topic)
+        fail(`${r.id} (topic ${r.topic}) carried by ${carrier.id} (topic ${carrier.topic}): carriers must share the topic`);
+    }
+  }
   // A silent row is silent for a reason: either nobody can write it, or a human deferred it.
   if (r.prompt === 'silent' && r.owner !== 'runtime' && !r.promptNote)
     fail(`${r.id}: silent but not runtime-owned, so it needs a promptNote saying who deferred it and why`);
