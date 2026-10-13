@@ -139,7 +139,31 @@ export async function createMaterializer({ boardUrl, root = HERE, executablePath
   };
 }
 
-export async function materialize({ browser, boardUrl, frame, theme, offline = true, props, viewport = { width: 1600, height: 2000 }, root = HERE, router = createVendorRouter({ root }) } = {}) {
+// What makes a render SETTLED, in the page's own words: the frame the caller asked for exists, has
+// been laid out with a non-zero box, has descendants (so its template expanded rather than leaving an
+// empty host), and no unresolved {{ }} hole is left anywhere in the document. Each half is needed.
+// Existence alone would accept a frame that rendered at zero size or never expanded; the placeholder
+// half is health gate 2 of spec/03 and stays exactly as it was.
+//
+// This replaced `document.querySelectorAll('*').length > 60`, a proxy for "something rendered"
+// measured on the reference board and nothing else. A single annotated card renders 21 nodes and
+// rendered perfectly (0 blocked, 0 unresolved, a correct 180x272 box) while that count reported it as
+// not settled, so the number was an artifact of one fixture's size, not a property of a good render.
+// frameId is null when no frame was requested; settling then falls back to "the document has content
+// and no holes", the only frame-independent claim available, and it still fails loudly on a board
+// that renders nothing.
+function settleTest(frameId) {
+  return (id) => {
+    if (/\{\{[^}]{1,40}\}\}/.test(document.body.innerHTML)) return false;
+    if (id === null || id === undefined) return document.querySelectorAll('body *').length > 1;
+    const el = document.getElementById(id);
+    if (!el) return false;
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && el.childElementCount > 0;
+  };
+}
+
+export async function materialize({ browser, boardUrl, frame, theme, offline = true, props, settleTimeoutMs = 20000, viewport = { width: 1600, height: 2000 }, root = HERE, router = createVendorRouter({ root }) } = {}) {
   const ctx = await browser.newContext({ viewport });
   const blocked = offline ? await installOfflineRouter(ctx, { router }) : [];
   const page = await ctx.newPage();
@@ -157,9 +181,11 @@ export async function materialize({ browser, boardUrl, frame, theme, offline = t
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'load' });
   // Render is async: templates are fetched and Babel-compiled at runtime, so waiting on a fixed
-  // delay would make the probe flaky. Wait for a populated tree with no unresolved placeholders.
+  // delay would make the probe flaky. Wait for the requested frame to have a real box, and keep the
+  // timeout: a frame that never renders must still come back settled false and say so, which is why
+  // this catches to false instead of throwing.
   const settled = await page
-    .waitForFunction(() => document.querySelectorAll('*').length > 60 && !/\{\{[^}]{1,40}\}\}/.test(document.body.innerHTML), null, { timeout: 20000 })
+    .waitForFunction(settleTest(frame ?? null), frame ?? null, { timeout: settleTimeoutMs })
     .then(() => true)
     .catch(() => false);
   // Webfont load changes text metrics, so reading geometry before fonts settle measures the wrong

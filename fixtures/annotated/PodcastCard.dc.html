@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="stylesheet" href="tokens.css"><!-- The reference card asks for Roboto 400/500 and Material Symbols Outlined from fonts.googleapis.com here. This fixture is served offline, so the same two faces are inlined as @font-face by the board that hosts it (Annotated.dc.html), which is what the runtime itself does at render time: it refetches this helmet link and re-emits it as a style element. --></helmet>
+<div data-component="podcast-card" data-elevation="1" data-token="colorScheme.surfaceContainer" role="button" tabIndex="0" onClick="{{ select }}" onFocus="{{ onCardFocus }}" onBlur="{{ onCardBlur }}" aria-pressed="{{ selected }}" style="box-sizing: border-box; width: 100%; display: flex; flex-direction: column; gap: var(--md-sys-space-8); padding: var(--md-sys-space-8); border-radius: var(--md-sys-shape-corner-medium); background: {{ cardBg }}; border: 2px solid {{ border }}; outline: {{ cardOutline }}; outline-offset: 2px; cursor: pointer; transition: background var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);">
+  <div data-component="podcast-card-cover" style="aspect-ratio: 1 / 1; border-radius: var(--md-sys-shape-corner-small); background: {{ coverBg }}; color: {{ coverFg }}; display: grid; place-items: center;">
+    <span data-icon="{{ glyph }}" style="grid-area: 1 / 1; font-family: 'Material Symbols Outlined'; font-size: 40px; line-height: 1; font-variation-settings: 'FILL' 1;">{{ glyph }}</span>
+    <span data-prop="category" style="grid-area: 1 / 1; align-self: end; justify-self: start; margin: var(--md-sys-space-8); font: var(--md-sys-typescale-label-medium); letter-spacing: var(--md-sys-typescale-label-medium-tracking);">{{ category }}</span>
+  </div>
+  <div data-component="podcast-card-title" data-prop="title" style="font: var(--md-sys-typescale-title-small); letter-spacing: var(--md-sys-typescale-title-small-tracking); color: var(--md-sys-color-on-surface); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 40px; padding: 0 var(--md-sys-space-4); text-wrap: pretty;">{{ title }}</div>
+  <div style="display: flex; align-items: center; gap: var(--md-sys-space-4); margin-top: -4px;">
+    <div data-prop="author" style="flex: 1; min-width: 0; padding-left: var(--md-sys-space-4); font: var(--md-sys-typescale-body-small); letter-spacing: var(--md-sys-typescale-body-small-tracking); color: var(--md-sys-color-on-surface-variant); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 32px;">{{ author }}</div>
+    <button data-component="podcast-card-subscribe-toggle" aria-label="{{ toggleLabel }}" aria-pressed="{{ subscribed }}" title="{{ toggleLabel }}" onClick="{{ toggle }}" onFocus="{{ onBtnFocus }}" onBlur="{{ onBtnBlur }}" style="flex: none; width: 48px; height: 48px; margin: -4px -4px -4px 0; padding: 0; border: none; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;">
+      <span style="width: 40px; height: 40px; border-radius: var(--md-sys-shape-corner-full); display: flex; align-items: center; justify-content: center; background: {{ btnBg }}; outline: {{ btnOutline }}; outline-offset: 2px; color: {{ subColor }}; transition: background var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);">
+        <span data-icon="{{ subIcon }}" style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1; font-variation-settings: {{ subFill }};">{{ subIcon }}</span>
+      </span>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:180,&quot;height&quot;:280},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Compiled Weekly&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;author&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Ada Moreno&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;category&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Tech&quot;,&quot;News&quot;,&quot;Comedy&quot;],&quot;default&quot;:&quot;Tech&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;subscribed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;selected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;force&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;hover&quot;,&quot;focus&quot;,&quot;hoverToggle&quot;,&quot;focusToggle&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onSelect&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onToggle&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  state = { cardFocus: false, btnFocus: false };
+  renderVals() {
+    const p = this.props;
+    const v = n => `var(--md-sys-color-${n})`;
+    const map = { Tech: ['secondary-container', 'on-secondary-container', 'terminal'], News: ['tertiary-container', 'on-tertiary-container', 'newspaper'], Comedy: ['primary-container', 'on-primary-container', 'sentiment_very_satisfied'] };
+    const category = p.category ?? 'Tech';
+    const [c, oc, glyph] = map[category] || map.Tech;
+    const force = p.force ?? '';
+    const sub = !!p.subscribed;
+    const ring = `3px solid ${v('secondary')}`;
+    const kb = e => { try { return e.currentTarget.matches(':focus-visible'); } catch (_) { return false; } };
+    return {
+      title: p.title ?? 'Compiled Weekly', author: p.author ?? 'Ada Moreno', category, glyph,
+      coverBg: v(c), coverFg: v(oc),
+      cardBg: v(force === 'hover' ? 'surface-container-high' : 'surface-container'),
+      border: p.selected ? v('primary') : 'transparent',
+      selected: !!p.selected, subscribed: sub,
+      cardOutline: (force === 'focus' || this.state.cardFocus) ? ring : 'none',
+      btnOutline: (force === 'focusToggle' || this.state.btnFocus) ? ring : 'none',
+      btnBg: force === 'hoverToggle' ? v('surface-container-highest') : 'transparent',
+      subIcon: sub ? 'bookmark_added' : 'bookmark_add',
+      subColor: v(sub ? 'primary' : 'on-surface-variant'),
+      subFill: sub ? "'FILL' 1" : "'FILL' 0",
+      toggleLabel: sub ? 'Unsubscribe' : 'Subscribe',
+      select: () => p.onSelect && p.onSelect(),
+      toggle: e => { e.stopPropagation(); p.onToggle && p.onToggle(); },
+      onCardFocus: e => { if (e.target === e.currentTarget) this.setState({ cardFocus: kb(e) }); },
+      onCardBlur: () => this.setState({ cardFocus: false }),
+      onBtnFocus: e => this.setState({ btnFocus: kb(e) }),
+      onBtnBlur: () => this.setState({ btnFocus: false }),
+    };
+  }
+}
+</script>
+<!--
+  Hand-annotated copy of fixtures/reference/PodcastCard.dc.html. Everything above this comment is
+  the reference template's own markup, styles, placeholder holes and data-props schema, unchanged
+  except for the data-* contract attributes (all ASCII kebab-case, or a placeholder hole that
+  resolves to one) and the two rewrites listed below. tests/annotated-fixture.test.mjs proves that
+  claim mechanically: strip the data-* attributes and the template proper is line-for-line the
+  reference's, including the data-props schema and renderVals().
+
+  The one exception in the document head: this template's helmet asked fonts.googleapis.com for Roboto
+  400/500 and Material Symbols Outlined. Those two links are removed here and the same two faces are
+  inlined as @font-face by the board that hosts this card (Annotated.dc.html), because an offline
+  fixture may not reach a CDN: the vendor router aborts anything .vendor/vendor-lock.json does not
+  pin, and css-inline-no-external plus no-remote-links-emitted both call a remote stylesheet an
+  error. This is also close to what the runtime already does at render time -- it refetches a helmet
+  link and re-emits it as a style element. Note that rules/...:head-links-helmet, the row about the
+  helmet's links, is owned by `runtime` and so could never be demanded of an author anyway.
+
+  Two authored deviations from the reference markup, both applying a documented fix rather than
+  hiding a finding:
+  - The two style-hover attributes are dropped. rules/...:states-as-markup (code animation-required,
+    owner author) calls a state that only a hover reaches a state no code gets, and its fix is to
+    render each state as markup or as a selectable declared state. This card already declares that
+    state the second way: the `force` prop in the data-props schema above takes hover, focus,
+    hoverToggle and focusToggle, and renderVals() maps them to the same two backgrounds
+    (surfaceContainerHigh, surfaceContainerHighest) that the dropped attributes painted. The mouse
+    affordance was redundant with a declared state the extractor can select.
+  - The cover's category label is placed with grid instead of position: absolute
+    (rules/...:layout-flex-grid-only: absolute is only for a declared overlay, and no
+    machine-readable overlay declaration exists in the contract yet). The cover is now a one-cell
+    grid with both children in `grid-area: 1 / 1`; the label is aligned to its end/start with the
+    same space8 inset, and the test asserts its box is where the absolute version put it.
+
+  Deliberately NOT annotated, with the reason:
+  - data-region on the card: the allowed values (top-bar, content, now-playing-bar, snackbar) name
+    Scaffold regions of a screen, and a single card is none of them. The board's frame wrapper does
+    carry data-region="content", since that wrapper is the only region this fixture owns.
+  - data-state: this fixture renders the one notSubscribed instance, so there is no second instance
+    to label, and rules/...:state-declared is detected by diffing materialized instances.
+  - data-token on the cover: its container role is picked by the `category` prop
+    (categoryCover in tokens.json), so one literal role name would be false for two of three
+    enum values. The card root's surfaceContainer does not vary by prop, so that one is named.
+  - data-grid-min on the cover: the cover's grid stacks two children in one cell; it repeats no
+    track, so there is no minimum cell width to declare. grid-min-undeclared still reports it, as a
+    warning, and that finding is left standing.
+  - data-scroll: the card scrolls nothing.
+-->
+</body>
+</html>

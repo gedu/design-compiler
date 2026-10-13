@@ -538,10 +538,14 @@ function checkViewportUnits() {
     }
 }
 
-// Serves layout-flex-grid-only. No machine-readable overlay declaration exists in the contract yet,
-// so every occurrence is reported and says so -- an unproven allowance is not a silent pass. The one
-// genuine human decision: a data-overlay naming a box no element declares with data-box cannot be
-// resolved by any rule, so it is a refusal (exit 3) and not a diagnostic.
+// Serves layout-flex-grid-only, whose own ask permits absolute for "an overlay that sits on top of a
+// box you also declare, and mark the box it overlays". That declaration is the pair data-box plus
+// data-overlay. spec/01's contract list does not carry them yet (spec/02:62 already plans a
+// data-overlay, and spec/01 has its own rule that "when inference fails, add a contract field"), so
+// the pair is honored here and called a proposal in the message rather than settled fact: an
+// unproven allowance is not a silent pass, and a bare absolute is still reported. The one genuine
+// human decision stays a refusal (exit 3): a data-overlay naming a box no element declares with
+// data-box cannot be resolved by any rule.
 function checkAbsoluteLayout() {
   const boxes = new Set();
   const overlays = [];
@@ -559,7 +563,7 @@ function checkAbsoluteLayout() {
   for (const tpl of templates)
     for (const d of decls(tpl, 'position')) {
       if (!/^(absolute|fixed)$/.test(d.value)) continue;
-      emit('absolute-layout', d, `position: ${d.value} on a ${d.tag}; an overlay declaration is not expressible in the contract yet, so this cannot be seen as a declared overlay`);
+      emit('absolute-layout', d, `position: ${d.value} on a ${d.tag}; no data-overlay names it, so it is bare absolute and not a declared overlay (the data-box plus data-overlay pair is a proposed contract field, not yet in spec/01)`);
     }
 }
 

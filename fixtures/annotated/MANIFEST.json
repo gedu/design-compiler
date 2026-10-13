@@ -1,0 +1,20 @@
+{
+  "project": "Annotated PodcastCard (hand-authored single-card fixture)",
+  "designSystem": "Material Design 3 (m3.material.io, including the M3 Expressive update, as of October 2026). No expressive-only components used.",
+  "seedColor": { "name": "Material baseline", "hex": "#6750A4" },
+  "files": [
+    { "path": "tokens.json", "purpose": "design tokens, copied verbatim from the reference export (contract)", "format": "json" },
+    { "path": "tokens.css", "purpose": "CSS custom properties generated from tokens.json; the only file with literal colors", "format": "css" },
+    { "path": "support.js", "purpose": "the export's own runtime, copied verbatim from the reference export", "format": "javascript" },
+    { "path": "decisions.json", "purpose": "decisions and invented values for this fixture", "format": "json" },
+    { "path": "Annotated.dc.html", "purpose": "single-frame board: renders exactly one PodcastCard; ?frame=PodcastCard.compact isolates it", "format": "html" },
+    { "path": "PodcastCard.dc.html", "purpose": "PodcastCard mockup, the reference template plus hand-written data-* contract attributes", "format": "html" }
+  ],
+  "screens": [
+    {
+      "id": "PodcastCard.compact",
+      "html": "PodcastCard.dc.html",
+      "states": ["notSubscribed"]
+    }
+  ]
+}
