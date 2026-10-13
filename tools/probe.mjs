@@ -187,7 +187,14 @@ findings.questions.transport = {
   unresolvedTotal: findings.frames.reduce((n, f) => n + f.unresolvedPlaceholders, 0),
   errorTotal: findings.frames.reduce((n, f) => n + f.errors.length, 0),
 };
-findings.questions.renderHealthy = findings.questions.transport.everyFrameSettled && findings.questions.transport.unresolvedTotal === 0;
+// The report line below claims "zero page errors", so the predicate has to actually look at page
+// errors. Settling now asks whether the requested frame got a box rather than whether the board is
+// big, and under file:// the authored nodes do get a box while the sibling fetch still throws: a
+// run that ignores errors would print a healthy verdict over a broken transport.
+findings.questions.renderHealthy =
+  findings.questions.transport.everyFrameSettled &&
+  findings.questions.transport.unresolvedTotal === 0 &&
+  findings.questions.transport.errorTotal === 0;
 findings.questions.vendorComplete = findings.frames.every((f) => f.blockedRequests.length === 0);
 findings.questions.blockedUrls = [...new Set(findings.frames.flatMap((f) => f.blockedRequests))];
 findings.questions.frameIsolation = findings.frames.map((f) => ({ frame: f.frame, isolated: f.thisFrame, otherVisible: f.visibleFigures.length - (f.thisFrame ? 1 : 0) }));
