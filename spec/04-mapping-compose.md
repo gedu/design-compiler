@@ -146,11 +146,12 @@ and otherwise emits a reference plus a TODO. It never hand-authors path data.
 | glyph font with \`data-icon="bookmark_add"\` | \`Icons.Default.BookmarkAdd\` with a comment that the icon dependency must be present, or a named \`val\` bound to the project's own icon set if config names one |
 | glyph font, no name | a \`Box\` placeholder of the measured size, the literal glyph in a comment, \`// TODO: icon asset\`, and a \`warn\` |
 
-The dependency question is the target project's, not the converter's. There is no material-icons
-dependency in \`app/gradle/libs.versions.toml\` or \`shared/build.gradle.kts\` today, so the default
-emission carries a comment naming what to add (\`material-icons-core\`, or the
-\`androidx.compose.material.icons:icons-extended-gradle-plugin\` for anything outside it) and stops
-there. Adding a dependency to a teaching repo is a decision, not a default.
+The dependency question is the target project's, not the converter's, and its answer is measured
+there rather than recalled: this paragraph once claimed \`app/gradle/libs.versions.toml\` and
+\`shared/build.gradle.kts\` carried no material-icons dependency, and the workshop's build files
+contradicted it (\`material-icons = "1.7.3"\`, \`compose-materialIconsExtended\`, and the hand-written
+card already imports \`Icons.Default.BookmarkAdded\`). So: read the target's catalog first, and where
+a name resolves, \`snake_case\` becomes PascalCase, \`bookmark_added\` to \`BookmarkAdded\`.
 
 The honest metric is emitted \`// TODO: icon asset\` markers per screen: it counts the icons a human
 has to wire up, which is exactly what a glyph font hides.
