@@ -14,3 +14,6 @@ out/
 fixtures/reference/_ds/
 fixtures/reference/screens/*.png
 fixtures/reference/.thumbnail
+
+# codegraph index, local only
+.codegraph/

@@ -70,12 +70,25 @@ Two consequences that outrank everything below:
 
 ## Start here
 
-Task **T0** in \`odd/tasks/design-compiler.md\`, and only T0: format probe and frame materialization.
-It answers whether the runtime renders offline over \`file://\` with remote requests blocked, and
-whether \`?frame=\` isolates one frame. Playwright is **not installed** on this machine; only its browser
-binaries are cached. The old spike moved to **T5**, which answers the original unknown (is computed
-style enough to emit code that looks like the design) on a hand-annotated fixture, so it does not
-block on the prompt loop. Do not start T6 until T5 has an answer written down.
+Status as of 2026-10-13: **T0, T1, T2, T3 and T3.1 are done.** T2 added
+\`node tools/validate.mjs <dir> --json\` (\`npm run validate\`): 24 static checks, 24 implemented and 6
+reported \`unimplemented\`, exit codes 0/1/2/3/4 where **4 means the input itself is unreadable or
+malformed**. On \`fixtures/reference\` it exits 1 with 53 errors, and its \`remote-resource\` and
+\`webfont-remote\` counts (10 and 10) agree with \`docs/probe-report.md\`, which is the tool's strongest
+external check. \`docs/lessons.md\` is the spec/10 log and now carries one open discrepancy between the
+\`varying-text-marked-as-prop\` row and the \`prop-undeclared\` code: read it before touching either.
+
+Next is **T2.5, the bridge**, and it is not optional bookkeeping: no spec describes the layer that turns
+an export into something the IR can read, and 18 of the 50 CSS properties the reference fixture uses are
+named by no mapping spec at all. **T6 must not start before T2.5 writes \`spec/13-bridge.md\`** (\`spec/12\`
+is SwiftUI's, via T11). Alongside it: **T5** answers the original unknown (is computed style enough to
+emit code that looks like the design) on a hand-annotated fixture and does not block on the prompt loop,
+and **T4** is the human round trip that retires unknown 1. Do not start T6 until T5 has an answer written
+down and T4 has returned.
+
+Playwright is now a repo devDependency (1.64); no browser download is needed because the cached
+chromium-1243 is located by search and overridable with \`CHROME=\`. A machine without that cache needs
+\`npx playwright install chromium\`.
 
 Environment already available on this machine: Node 24, \`npx\`, Playwright with Chromium installed
 (\`~/Library/Caches/ms-playwright\`). The workshop project is at
@@ -85,8 +98,16 @@ is no Kotlin CLI on the PATH, so compile through Gradle.
 
 ## Rules of engagement
 
-- **Work the ODD list.** T0 to T11 exist with blockers. One task at a time, mark progress in
+- **Work the ODD list.** T0 to T15 exist with blockers. One task at a time, mark progress in
   \`odd/tasks/design-compiler.md\`, and never mark a task done while a check fails.
+- **Read before you overwrite.** \`odd/tasks/design-compiler.md\` is a reconciled document with outcome
+  evidence in it, not a scratch pad. Read the file at HEAD before writing it. Rebuilding it from a
+  summary destroyed 27 KB of that evidence once already (2026-10-13, recovered from git); amend the
+  existing task entries in place instead.
+- **A check that fires is not a check that is right.** T2's first draft produced 58 \`prop-undeclared\`
+  findings on the reference export, and every one was a glyph name or board annotation. When a count
+  looks large, compare it against what the spec says about that export before believing it: spec/07
+  predicted 0, and 0 was correct.
 - **A mapping bug needs a fixture.** Golden tests are the actual product. Every corner case you meet
   becomes an input fixture plus the expected emitted file, plus a determinism assertion. A bug
   without a fixture is not fixed, it is merely unused today.
