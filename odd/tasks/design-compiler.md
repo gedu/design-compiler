@@ -241,23 +241,22 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     comment. And `js-dependent-paint` reports `info` while its row says `error`: that is the one
     declared severity deviation, rank-checked by a test so no code can ever report *above* its row.
 
-- [ ] T2.5 Bridge: normalize any design source into a SourceModel the IR can read
+- [x] T2.5 Bridge: normalize any design source into a SourceModel the IR can read
   - Blocked by: T2 (learning only: the validator's static-evidence wall is what proves the bridge is needed)
   - Blocks: T6. The extractor must not read a raw export; it reads the normalized SourceModel.
   - Seams: SourceModel golden per source tool; unknown-property report that renders as a paste-ready
     repair instruction for that tool
   - **Why this task exists, measured on `fixtures/reference` on 2026-10-13.** No spec describes the
     layer between an export and the IR: spec/02 says "a target that peeks at HTML is a bug" and spec/03
-    begins at "read computed style", so the translation itself has no owner. 18 of the 50 CSS properties
-    the fixture actually uses are named by none of spec/02, 03, 04, 05 or 06: `min-height`(9),
-    `box-sizing`(7), `max-width`(6), `font-variation-settings`(6), `text-wrap`(5), `position`(5),
-    `outline-offset`(4), `transition`(4), `scrollbar-width`/`scrollbar-color`(6),
-    `grid-template-columns`(2), `font-variant-numeric`(2), `margin-left`/`margin-top`/`padding-left`/
-    `padding-bottom`(4), `caret-color`(1), `animation`(1). A second input channel goes unread the same
-    way: `hint-size`(28), `hint-placeholder-val`(26) and `hint-placeholder-count`(5) are *declared*
-    intent (free evidence for the icon-placeholder case spec/04:147 needs a browser to measure), and
-    `style-hover`(10) paints a state in an attribute rather than in CSS; only spec/01:36 notices them
-    and nothing consumes them.
+    begins at "read computed style", so the translation itself has no owner. The gap as written here
+    (18 of 50 CSS properties) was **measured wrong by this file and is corrected below**: with the
+    canonical reader it is 16 unmapped of 53 declared properties. The difference is a property regex
+    that silently dropped `-webkit-box-orient` and `-webkit-line-clamp` (a `^[-a-z]` character class),
+    plus two properties that were shorthands capture expands and one that a mapping row does own.
+    A second input channel goes unread the same way: `hint-size`(28), `hint-placeholder-val`(26) and
+    `hint-placeholder-count`(5) are *declared* intent (free evidence for the icon-placeholder case
+    spec/04:147 still plans to measure in a browser), and `style-hover`(10) paints a state in an
+    attribute rather than in CSS; spec/01 notices them and nothing consumed them.
   - **Shape decided with Eduardo on 2026-10-13:** two layers behind adapters, plug-and-play.
     adapter (per source tool: Claude Design `.dc.html`, then Figma per spec/11, later Caveman/Zeplin)
     -> SourceModel (normalized: nodes, declarations with provenance, attributes, hints; nothing
@@ -269,12 +268,50 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     (`scrollbar-color`, `caret-color`) emit with a comment. The same unknown set renders as a
     repair instruction for the source tool, which is spec/10 sink 3 made mechanical and automates the
     T4 round trip instead of waiting on a human to notice.
-  - spec/03:16 says capture from a `file://` URL; `docs/probe-report.md` proved that cannot work (the
-    runtime fetches sibling `.dc.html` for `<dc-import>` against a null origin). Capture runs over
-    loopback with `.vendor/` pinning, as `tools/probe.mjs` already does. Fix spec/03 in this task.
+  - spec/03's Capture section said capture from a `file://` URL with JavaScript disabled;
+    `docs/probe-report.md` proved that cannot work (the runtime fetches sibling `.dc.html` for
+    `<dc-import>` against a null origin, and `support.js` builds the tree). Amended in this task.
   - Write `spec/13-bridge.md` (source adapters, SourceModel schema, unknown-severity classes, the
     repair-instruction format) in this task; T6 does not start without it. Numbered 13 because T11 owns
     `spec/12` for SwiftUI, as T3's outcome already records.
+  - **Outcome, 2026-10-13.** `spec/13-bridge.md` (228 lines) states the two-stage split and why one
+    stage cannot report what it failed to understand, the adapter's four obligations, the SourceModel
+    schema, capture over loopback, the severity classes, and the repair-instruction format.
+    `rules/property-ownership.json` gives each of the 53 declared properties exactly one owner (34
+    `mapped` / 696 declarations, 3 `expanded` / 138, 16 `unmapped` / 53; 696+138+53 = 887) plus 23
+    count-0 longhand rows capture always produces. `tools/css-harvest.mjs` is the canonical reader;
+    `tools/property-map.mjs` checks coverage, verifies evidence and renders the repair report
+    (`npm run properties`, `npm run repair`, `--relocate`, `--json`). `spec/03` Capture amended in the
+    same work unit. 32 new tests, `npm test` 92/92, `check-contract.mjs` still green, ASCII clean,
+    two `--json` runs byte-identical.
+  - **The severity is data, not a judgment.** Each disposition declares a severity in spec/02's own
+    words, so no emitter ever decides how much an unknown matters: 9 of the 16 reach the target as
+    `error` (they stop the node), 5 as `warn` (emit plus a comment), 2 as `info`. A disposition with a
+    severity outside error/warn/info is exit 2.
+  - **Two numbers this task corrected, both from measurement.** `18 of 50` became `16 of 53`, and the
+    cause is recorded above rather than quietly fixed. And the shorthand-reset table in spec/13 was
+    measured in the Chromium the capture uses instead of recalled: `font` does **not** reset
+    `letter-spacing`, `border` does **not** reset `border-radius`, `outline` does **not** reset
+    `outline-offset`, while `overflow` **does** reset `overflow-y` and `gap` **does** reset `row-gap`.
+    That is why `letter-spacing` appears 23 times beside 65 `font:` shorthands as real intent, and why
+    reading `overflow-y` is where spec/03's scroll decision has to live.
+  - **`expanded` versus `unmapped` is the distinction that keeps the report honest.** `font`,
+    `background` and `flex` are shorthands whose longhands a spec owns, so capture genuinely dissolves
+    them and asking the design tool to stop using `font:` would be asking it to fix nothing. `outline`
+    is also expanded by capture, but no target owns an outline, so it stays a gap and its three
+    longhands are named. Classifying by browser behavior alone would have demoted a real accessibility
+    decision (three `outline: none` on focusable elements) into a footnote.
+  - **An open question this surfaced, unresolved on purpose.** Five of the six `max-width`
+    declarations are presentation-board chrome (1400px header, 1320px twice on frame grids whose own
+    captions read "NowPlayingBar full width at every window size", 760px/560px on board prose); only
+    720px on the Home search row is the design. Nothing in the source distinguishes a board from a
+    screen, so a capture reads board layout as component geometry. Classified `structural`, so all six
+    stop: inventing a 1320.dp component width is worse than refusing. Two cheap resolutions exist
+    (a board stylesheet capture may exclude, or a manifest field naming scaffolding frames) and
+    choosing one is T4's.
+  - **What this did not do.** No `SourceModel` golden exists yet, because there is still nothing to
+    normalize into: the seam is declared in spec/13 and the first artifact arrives with T6's capture.
+    The hint attributes are specified as a first-class channel and are still not consumed by code.
 
 - [x] T3 Prompt builder: deterministic header assembly
   - Blocked by: T1
@@ -360,7 +397,8 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
   - Decision to record: throw the spike away or grow it into T6. Say which, in writing.
 
 - [ ] T6 Extraction to a real IR on disk
-  - Blocked by: T5
+  - Blocked by: T5 (T2.5 is done: `spec/13-bridge.md` defines what extraction may assume, and
+    `tools/css-harvest.mjs` is the reader it must reuse rather than rewrite)
   - Seams: `ir` command, golden IR fixtures
   - Capture, reduce, resolve, detect per spec/03, emitting the spec/02 JSON. Type and shape ladders
     verified against the pinned material3 in the Gradle cache, reverse color lookup with tolerance,

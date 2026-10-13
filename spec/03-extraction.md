@@ -5,14 +5,28 @@ where it is not, the result is a diagnostic, not a guess.
 
 ## Capture
 
-Headless Chromium, one pass per file:
+Amended by task T2.5, because the original two words here (\`file://\`, \"JavaScript disabled\") could
+not run against a real export. Measured in \`docs/probe-report.md\`, reproducible with \`node
+tools/probe.mjs --frame PodcastCard --file-protocol\`: the runtime resolves \`<dc-import>\` by fetching
+the sibling \`.dc.html\`, and a \`file://\` page has a null origin, so the fetch throws. And JavaScript
+cannot be disabled at all, because \`support.js\` builds the tree -- which is why the contract keeps
+\`js-dependent-paint\` \`violated\` instead of deleting it: the workaround is the pipeline, and the rule
+row records that.
 
-1. \`file://\` URL, JavaScript disabled, network blocked at the browser level. A request that fails
-   is a contract violation, and blocking the network turns it into a loud one instead of a subtle
-   visual difference.
-2. Set the viewport to the frame width from the manifest, height tall enough that nothing is
-   clipped, then measure. Do not use the window size as a design value.
-3. Walk the DOM. For each element, one \`getComputedStyle()\` read plus one \`getBoundingClientRect()\`.
+Headless Chromium, one pass per frame (\`spec/13-bridge.md\` owns the layer that produces this tree):
+
+1. Loopback URL on \`127.0.0.1\` over one directory (\`tools/serve.mjs\`), with the offline guarantee
+   moved to the request router: any request that is not loopback and not pinned in
+   \`.vendor/vendor-lock.json\` is aborted and counted. A counted request is a contract violation, and
+   counting it turns it into a loud failure instead of a subtle visual difference. Two health gates
+   must read zero before a computed style is trusted: blocked requests and unresolved \`{{ }}\`
+   placeholders.
+2. Set the viewport to the frame width, height tall enough that nothing is clipped, then measure. The
+   authored size, when the export states one, comes from \`hint-size\` on the \`<dc-import>\`; the window
+   size is never a design value.
+3. Walk the DOM. For each element, one \`getComputedStyle()\` read plus one \`getBoundingClientRect()\`,
+   both after \`document.fonts.ready\`: reading earlier measures a different font, and a run that
+   measures two fonts is not reproducible.
 4. Read the \`<style>\` block once for the custom-property to role map: \`--md-sys-color-primary\` to
    \`primary\`. That map is the authority; a computed hex is only evidence.
 5. Emit the tree. Never write a target file from this pass.

@@ -10,6 +10,12 @@ line here points at a check, a rule row, or a fixture that already exists in the
 2026-10-13 animation-required check  style-<state>= and animation: gate a state; transition: and @keyframes do not
 2026-10-13 bridge-gap        contract  18 of 50 fixture CSS properties have no mapping owner -> odd/tasks T2.5
 2026-10-13 exit-4            rule   exit 4 = input unreadable or malformed, a CI-distinguishable failure -> tools/validate.mjs header
+2026-10-13 bridge-gap        check  superseded by measurement: 16 unmapped of 53 declared, not 18 of 50 -> tools/property-map.mjs + tests/property-map.test.mjs
+2026-10-13 css-hole-truncation check  a {{ }} hole ends a naive value match and drops the declaration -> tools/css-harvest.mjs (all 3 overflow-y in the export were invisible)
+2026-10-13 vendor-prefix     check  ^[-a-z] property regex silently discards -webkit-* -> tools/css-harvest.mjs keeps the leading dash
+2026-10-13 shorthand-reset   contract  whether a shorthand resets a longhand is measured in Chromium, not recalled -> spec/13 table (font keeps letter-spacing; border keeps border-radius)
+2026-10-13 unknown-severity  contract  each unknown carries a severity in spec/02's words, so no emitter decides -> rules/property-ownership.json dispositions
+2026-10-13 stale-citation    check  editing a spec moves every citation into it; --relocate fixes provable moves only -> tools/property-map.mjs
 ~~~
 
 ## Open discrepancies
@@ -30,7 +36,29 @@ wrong. Each has an asserted exemption in the suite so it cannot quietly disappea
   `tests/validate.test.mjs` records it with an asserted exemption count.
   Decision owner: T1. Options: narrow the row's `measured` claim, or add a fixture that genuinely
   varies copy between instances (T4 may produce one).
-- `spec/03-extraction.md:16` says capture from a `file://` URL. `docs/probe-report.md` proved that
+- `spec/03-extraction.md` said capture from a `file://` URL. `docs/probe-report.md` proved that
   cannot work: the runtime fetches sibling `.dc.html` files for `<dc-import>` against a null origin.
   Capture must go through the loopback server with the vendor lock, as `tools/probe.mjs` does.
   Decision owner: T2.5, in `spec/13-bridge.md` (`spec/12` belongs to SwiftUI via T11).
+  **RESOLVED 2026-10-13 by T2.5**: the Capture section of `spec/03-extraction.md` is amended to
+  loopback plus vendor lock with two health gates (blocked requests, unresolved placeholders), and
+  `spec/13-bridge.md` owns the layer in front of it. Resolved in prose *and* in the rule table, which
+  is the point: the line number it used to cite no longer exists, and `--relocate` is what reconciles
+  citations after an edit like this one.
+- The bridge gap was recorded here as "18 of 50 fixture CSS properties". Measured with a reader that
+  keeps vendor prefixes and treats a `{{ }}` hole as one opaque token, it is **16 unmapped properties
+  of 53 declared**, across 887 declarations. Neither number was a property of the export: the first
+  came from a `^[-a-z]` property regex that silently dropped `-webkit-box-orient` and
+  `-webkit-line-clamp`, and from counting shorthands the browser expands as if a target had to map
+  them. `npm run properties` now recomputes it, and `tests/property-map.test.mjs` pins 53/16/53 so the
+  next person who wants to argue about the gap argues with the tool.
+  Decision owner: none. Resolved by measurement, kept as a line here because the wrong number is the
+  lesson.
+- Five of the six `max-width` declarations in the reference export are presentation-board chrome, not
+  design: 1400px is the board header, 1320px (twice) are frame grids whose own captions read
+  "NowPlayingBar full width at every window size", and 760px/560px cap board prose. Only 720px (the
+  Home search row) is a component constraint. Nothing in the source tells a board from a screen, so
+  capture reads board geometry as component geometry, and no check can tell them apart today.
+  Classified `structural`, so all six stop the node rather than guess. Decision owner: **T4**. Options:
+  give the board its own stylesheet a capture may exclude, or let `MANIFEST.json` name which frames are
+  scaffolding. Not papered over: `npm run repair` asks it on every run.

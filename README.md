@@ -9,9 +9,10 @@ The other half of the tool is a prompt builder: it assembles the instructions gi
 so the design arrives in a shape a compiler can read, and a validator proves the prompt worked.
 
 ~~~text
-Claude Design export  (screens/*.html, tokens.json)
+Claude Design export  (*.dc.html templates, tokens.json, MANIFEST.json)
         |
-        v   headless Chromium: walk the DOM, read getComputedStyle()
+        v   spec/13 bridge: one adapter per source tool -> SourceModel (raw, named, provenance)
+        v   headless Chromium over loopback: walk the DOM, read getComputedStyle()
    IR     one JSON tree per screen: node kind, geometry, resolved style,
         | token role, children, repetition groups, states
         v
@@ -24,6 +25,8 @@ Claude Design export  (screens/*.html, tokens.json)
         +--> figma          frames from the IR, no plugin, no import quota
 
 prompt builder (spec/08) --> Claude Design --> the export above, validated by spec/07
+     ^                                              |
+     +---- the unknown-property report (spec/13) <----+
 ~~~
 
 ## Why this is a compiler and not a prompt
@@ -36,7 +39,9 @@ That work is already finished inside the HTML. The browser has resolved every ru
 repetition of a card twelve times is already the list. Reading those facts is deterministic.
 Asking a model to re-derive them from HTML text is not, and it is the expensive part.
 
-This project reads the computed DOM, so the model is never the parser.
+This project reads the computed DOM, so the model is never the parser. What it reads is not raw HTML
+either: spec/13 puts a named SourceModel in front of extraction, so a second design tool costs an
+adapter and not a new extractor.
 
 ## The bet this rests on
 
@@ -65,10 +70,17 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | --- | --- |
 | tools/probe.mjs | what a real export actually is, re-measured: `node tools/vendor.mjs` once, then `node tools/probe.mjs` |
 | tools/serve.mjs | loopback static server for an export, path-confined to one directory |
+| tools/validate.mjs | the contract table as executable checks: `npm run validate -- fixtures/reference` |
+| tools/property-map.mjs | which CSS properties a target owns, and the unknowns as a repair report: `npm run properties`, `npm run repair` |
+| tools/css-harvest.mjs | the one canonical CSS reader: `{{ }}` holes are opaque, selectors are not declarations |
+| tools/check-contract.mjs | the rule table's own invariants (owner, severity, prompt carriers) |
 | tools/prompt.mjs | assemble the Claude Design prompt: `node tools/prompt.mjs --target compose --out out/DESIGN-PROMPT.md` |
 | rules/contract-rules.json | the normative contract table: prompt and validator read the same rows |
+| rules/property-ownership.json | which mapping spec owns each CSS property, and the severity of each unknown |
 | rules/target-blocks.json | target prompt text as data, with the topic cross-check the assembler runs |
 | tests/golden/ | the assembled prompts, byte for byte; `npm test` compares, `--update` rewrites |
+| baselines/reference.json | per-code validator counts on the reference export, so a check cannot silently change |
+| docs/lessons.md | the spec/10 log: one line per lesson, each pointing at a check or a fixture |
 | docs/probe-report.md | generated answers: transport, frame isolation, determinism, missing contract attributes |
 | spec/01-input-contract.md | what the export must contain, machine checkable |
 | spec/02-ir.md | the intermediate representation, field by field |
@@ -80,6 +92,8 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | spec/08-platform-aware-prompt.md | the Claude Design prompt, target-platform aware |
 | spec/09-wizard.md | the interactive CLI |
 | spec/10-learning-loop.md | how per-screen runs accumulate rules, not prose |
+| spec/11-figma.md | the two ways into Figma, and which one costs nothing |
+| spec/13-bridge.md | the layer between an export and the IR: adapters, SourceModel, unknown severities |
 | spec/corner-cases.md | the flat catalog: known hard cases and their resolution |
 | odd/tasks/design-compiler.md | the build order, with seams and blockers |
 
@@ -90,9 +104,10 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | 1 | spec/01-input-contract.md | the bet: a contract instead of arbitrary HTML |
 | 2 | spec/02-ir.md | the one structure every target reads |
 | 3 | spec/03-extraction.md | computed style, reduction, resolution tables |
-| 4 | spec/04-mapping-compose.md | the target that matters, and the ten traps |
-| 5 | spec/corner-cases.md | the catalog to work through when output is wrong |
-| 6 | odd/tasks/design-compiler.md | the build order, T0 first |
+| 4 | spec/13-bridge.md | what extraction is allowed to assume, and what it must refuse |
+| 5 | spec/04-mapping-compose.md | the target that matters, and the ten traps |
+| 6 | spec/corner-cases.md | the catalog to work through when output is wrong |
+| 7 | odd/tasks/design-compiler.md | the build order, with each task's measured outcome |
 
 Verified numbers, not from memory: type scale, shape ladder, elevation ladder and state layer
 opacities were read out of material3 1.12.0-alpha03 sources. Re-verify against whatever version is
@@ -102,7 +117,10 @@ issue.
 
 ## Status
 
-Spec only. No code yet, and no commits yet.
+Tools exist; emitters do not. T0, T1, T2, T2.5, T3 and T3.1 are done, which is the input side: know
+what an export is, make the contract executable, make the prompt, and own the layer in between. The
+next unknown is whether computed style alone emits code that looks like the design (T5, no human
+needed), and the one blocking a human is T4, the round trip that proves the prompt.
 
 The input format was written down before an export existed. One arrived on 2026-10-12
 (`~/Documents/CK/internals/kotlin-workshop-lab/jetcasterDesign`) and it differs from spec/01 in ways
@@ -112,10 +130,15 @@ exchange it provides a prop schema (`data-props`), a `MANIFEST.json` with screen
 `tokens.json` with color, typography, shape, spacing and motion. Read the "What changed" table in
 `odd/tasks/design-compiler.md` before taking any statement in spec/01 as fact about the input.
 
-Two risks, and the tasks that retire them: whether Claude Design can honor a markup contract (T4,
-needs a human round trip), and whether resolved computed style is enough to emit code that looks like
-the design (T0 plus T5, no human needed). SwiftUI has no mapping spec yet; that is T11.
+SwiftUI has no mapping spec yet; that is T11, and it is why the bridge spec is number 13.
 
-T0 is done. `docs/probe-report.md` holds the measured answers, the headline being that materializing
-a frame needs a loopback server rather than a `file://` URL, and that the export carries none of the
-contract attributes the prompt has to ask for.
+Measured rather than believed, all reproducible:
+
+- `docs/probe-report.md`: materializing a frame needs a loopback server, not a `file://` URL, and the
+  export carries none of the contract attributes the prompt has to ask for.
+- `npm run validate -- fixtures/reference` exits 1 with 53 errors, 43 warnings, 197 infos; its
+  `remote-resource` and `webfont-remote` counts (10, 10) agree with the probe independently.
+- `npm run properties` reports 53 CSS properties in 887 declarations, of which 16 (53 declarations) are
+  named by no mapping spec. Those 16 are the gap spec/13 exists to close, and `npm run repair` renders
+  them as a paste-ready ask for the design tool.
+- `npm test` is 92 tests over the prompt builder, the validator and the property map.

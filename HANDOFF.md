@@ -1,7 +1,7 @@
 # Handoff for the agent picking this up
 
-You are building **design-compiler** in this repository. It is a fresh repo with a written spec and
-no code yet. The human is running a Kotlin workshop elsewhere and is not available for open-ended
+You are building **design-compiler** in this repository. The spec is written, the input side of the
+tool exists, and the emitters do not. The human is running a Kotlin workshop elsewhere and is not available for open-ended
 questions; ask one focused question only when a real product decision is blocking, otherwise follow
 the spec and record the assumption.
 
@@ -37,13 +37,15 @@ already resolved. The converter does that rediscovery once, deterministically.
 | 2 | odd/tasks/design-compiler.md, including the "What changed" table |
 | 3 | spec/01-input-contract.md, read against the amendment note below |
 | 4 | spec/02-ir.md |
-| 5 | spec/03-extraction.md |
-| 6 | spec/04-mapping-compose.md |
-| 7 | spec/corner-cases.md |
-| 8 | spec/07-validator.md |
+| 5 | spec/13-bridge.md, the layer between an export and the IR |
+| 6 | spec/03-extraction.md |
+| 7 | spec/04-mapping-compose.md |
+| 8 | spec/corner-cases.md |
+| 9 | spec/07-validator.md |
 
 Then spec/05 to spec/11 as each task needs them. Do not skip spec/01: it is the premise, and most
-"this is hard" reactions come from reading the emitters without it.
+"this is hard" reactions come from reading the emitters without it. Do not skip spec/13 either: it is
+what keeps a second design tool from costing a new extractor.
 
 ## Amendment, written 2026-10-12 after a real export arrived
 
@@ -70,21 +72,26 @@ Two consequences that outrank everything below:
 
 ## Start here
 
-Status as of 2026-10-13: **T0, T1, T2, T3 and T3.1 are done.** T2 added
-\`node tools/validate.mjs <dir> --json\` (\`npm run validate\`): 24 static checks, 24 implemented and 6
-reported \`unimplemented\`, exit codes 0/1/2/3/4 where **4 means the input itself is unreadable or
-malformed**. On \`fixtures/reference\` it exits 1 with 53 errors, and its \`remote-resource\` and
-\`webfont-remote\` counts (10 and 10) agree with \`docs/probe-report.md\`, which is the tool's strongest
-external check. \`docs/lessons.md\` is the spec/10 log and now carries one open discrepancy between the
-\`varying-text-marked-as-prop\` row and the \`prop-undeclared\` code: read it before touching either.
+Status as of 2026-10-13: **T0, T1, T2, T2.5, T3 and T3.1 are done.** The input side is built; no
+emitter is. \`npm test\` is 92 tests.
 
-Next is **T2.5, the bridge**, and it is not optional bookkeeping: no spec describes the layer that turns
-an export into something the IR can read, and 18 of the 50 CSS properties the reference fixture uses are
-named by no mapping spec at all. **T6 must not start before T2.5 writes \`spec/13-bridge.md\`** (\`spec/12\`
-is SwiftUI's, via T11). Alongside it: **T5** answers the original unknown (is computed style enough to
-emit code that looks like the design) on a hand-annotated fixture and does not block on the prompt loop,
-and **T4** is the human round trip that retires unknown 1. Do not start T6 until T5 has an answer written
-down and T4 has returned.
+- **T2** added \`node tools/validate.mjs <dir> --json\` (\`npm run validate\`): 24 static checks, 6
+  reported \`unimplemented\`, exit codes 0/1/2/3/4 where **4 means the input itself is unreadable or
+  malformed**. On \`fixtures/reference\` it exits 1 with 53 errors, and its \`remote-resource\` and
+  \`webfont-remote\` counts (10 and 10) agree with \`docs/probe-report.md\`, which is the tool's strongest
+  external check.
+- **T2.5** added the bridge: \`spec/13-bridge.md\` (source adapters, the SourceModel schema, capture
+  over loopback, and the severity class each unknown carries), \`rules/property-ownership.json\` (every
+  property the export declares plus the spec line that owns it), \`tools/css-harvest.mjs\` (the one
+  canonical CSS reader) and \`tools/property-map.mjs\` (\`npm run properties\`, \`npm run repair\`). It also
+  amended \`spec/03\`'s Capture section, which said \`file://\` and "JavaScript disabled": both
+  impossible against a real export.
+- \`docs/lessons.md\` is the spec/10 log. Read it before touching \`varying-text-marked-as-prop\` or
+  \`prop-undeclared\`: they measure different claims, and that discrepancy is deliberately left open.
+
+**Next is T5**, the Compose spike, which needs an answer written down before T6 may start. **T4** is
+the human round trip that retires unknown 1 and is the only task waiting on a person. T6 is unblocked
+by T2.5 and still blocked by T5. See \`odd/tasks/design-compiler.md\` for the state of each.
 
 Playwright is now a repo devDependency (1.64); no browser download is needed because the cached
 chromium-1243 is located by search and overridable with \`CHROME=\`. A machine without that cache needs
@@ -98,6 +105,19 @@ is no Kotlin CLI on the PATH, so compile through Gradle.
 
 ## Rules of engagement
 
+- **A count is a measurement, not a memory.** The bridge gap was written as "18 of the 50 CSS
+  properties"; measured it is 16 of 53, and the difference is a property regex dropping
+  \`-webkit-*\` plus shorthands the browser expands. \`npm run properties\` recomputes it and a test pins
+  the numbers, so a future edit argues with the tool instead of with a paragraph.
+- **A spec edit moves citations, and that is a check rather than a nuisance.**
+  \`rules/property-ownership.json\` points at spec lines by \`spec/<file>.md:<line>\`. Editing any spec
+  above a mapping row breaks them: amending spec/03's Capture section moved 20 at once.
+  \`node tools/property-map.mjs --relocate\` applies the ones that are provably a move and refuses the
+  ones where two rows could own the property, because that choice belongs to a human.
+- **Whether a shorthand resets a longhand is a browser fact.** Every reset claim in spec/13 was
+  measured in the Chromium this capture uses, not recalled: \`font\` does not reset \`letter-spacing\`,
+  \`border\` does not reset \`border-radius\`, \`overflow\` does reset \`overflow-y\`. A mapping built on the
+  remembered answer drops design intent silently.
 - **Work the ODD list.** T0 to T15 exist with blockers. One task at a time, mark progress in
   \`odd/tasks/design-compiler.md\`, and never mark a task done while a check fails.
 - **Read before you overwrite.** \`odd/tasks/design-compiler.md\` is a reconciled document with outcome
