@@ -1,0 +1,39 @@
+{
+  "baseline": "validate-baseline/1",
+  "contract": "contract-rules/1",
+  "input": "reference",
+  "rules": "contract-rules.json",
+  "codes": {
+    "absolute-layout": 2,
+    "animation-required": 17,
+    "brief-missing": 0,
+    "callback-inferred": 5,
+    "clip-missing": 0,
+    "color-alpha-of-role": 0,
+    "color-literal": 0,
+    "component-name-invalid": 2,
+    "css-external": 10,
+    "dark-only-via-js": 5,
+    "frame-width-unknown": 4,
+    "grid-min-undeclared": 2,
+    "icon-font": 17,
+    "icon-unnamed": 17,
+    "js-dependent-paint": 191,
+    "lorem-ipsum": 0,
+    "manifest-incomplete": 0,
+    "prop-undeclared": 0,
+    "pseudo-content": 0,
+    "remote-resource": 10,
+    "tokens-incomplete-scheme": 0,
+    "tokens-missing": 0,
+    "viewport-units": 1,
+    "webfont-remote": 10
+  },
+  "totals": {
+    "errors": 53,
+    "findings": 293,
+    "infos": 197,
+    "unimplemented": 6,
+    "warnings": 43
+  }
+}

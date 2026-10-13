@@ -1,0 +1,13 @@
+{
+  "project": "Synthetic clean",
+  "designSystem": "Material Design 3",
+  "seedColor": { "name": "Material baseline", "hex": "#6750A4" },
+  "files": [{ "path": "tokens.json", "purpose": "design tokens (contract)", "format": "json" }],
+  "screens": [
+    {
+      "id": "AlbumCard.compact",
+      "html": "AlbumCard.dc.html",
+      "states": ["default", "selected"]
+    }
+  ]
+}

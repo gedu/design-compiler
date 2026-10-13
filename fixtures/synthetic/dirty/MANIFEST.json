@@ -1,0 +1,9 @@
+{
+  "project": "Synthetic dirty",
+  "designSystem": "Material Design 3",
+  "seedColor": { "name": "Material baseline", "hex": "#6750A4" },
+  "files": [{ "path": "tokens.json", "purpose": "design tokens (contract)", "format": "json" }],
+  "screens": [
+    { "id": "PlayerCard.phone", "html": "PlayerCard.dc.html", "states": [] }
+  ]
+}
