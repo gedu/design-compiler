@@ -388,9 +388,11 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     detection rule or a non-goal in the same commit. This task is what unknown 1 is waiting on.
 
 - [ ] T5 Spike: one materialized frame to one compiling Compose file
-  - Status 2026-10-14: **answered in writing, one half open.** Compiles: yes, measured. Looks like the
-    frame: never observed, and closing it needs a render host in the workshop repo, which is the human's
-    to approve. The spike/grow decision below is the deliverable this task existed to produce.
+  - Status 2026-10-14: **answered in writing; the visual half is now observed and it found two defects.**
+    Compiles: yes, measured. Looks like the frame: rendered on `emulator-5554` (WU7 below) -- the geometry
+    is close (180x264dp where the frame is 180x272), and rendering surfaced a launch crash plus an
+    invisible toggle state, neither of which a compile can see. One is fixed, one is open and belongs to
+    T7. The spike/grow decision below is the deliverable this task existed to produce.
   - Blocked by: T0, T2
   - Seams: golden fixture, `./app/gradlew :shared:compileKotlinJvm`
   - Unknown 2, answered without waiting for T4: take the hand-annotated `PodcastCard` fixture, read
@@ -502,6 +504,10 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     repo, which carries the human's uncommitted WIP and is not this spike's to modify. An emulator
     (`emulator-5554`) is attached on this machine, so the check is one approved preview host away, not
     a build away. It is left open deliberately rather than closed by a screenshot of something else.
+    **Superseded on 2026-10-14 by WU7, which built exactly that host without touching the human's tree**
+    (a same-clone `git worktree add` + a scratch activity + `applicationIdSuffix .spike`, all removed
+    after). The claim above stayed true about the WIP constraint and false about the observation; what it
+    could not predict is that the render would find a crash the compiler had blessed. See WU7.
   - **WU6 amendment: the toggle became a component, and the IR carries its boolean (`ded3e16`).** spec/02's
     Node gained `type` and `callback` as declared fields and the enum gained Column, Button, IconButton
     and IconToggleButton, so the schema gap WU4b surfaced is closed for the values this spike actually
@@ -531,6 +537,23 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     callback, so `selected` resolves correctly and is dropped, with `callback-inferred` firing for the
     wrong reason. That is a schema decision for a human, recorded in Debt 1 below and in
     `docs/lessons.md`.
+  - **WU7 verification: rendered it, and the render was worth more than the compile.** A scratch host
+    (worktree off the same clone at `bf1bf90`, composable in `:shared`, activity declared in that
+    worktree's manifest because `am start` cannot launch an undeclared component, `applicationIdSuffix
+    ".spike"` so it installs beside the human's app) put the emitted card on `emulator-5554`. Three
+    findings, in the order they hurt: **(a)** the app died on launch -- `IllegalArgumentException:
+    Padding must be non-negative` from `PaddingElement`, attributed to `PodcastCard.kt:92` and the toggle.
+    A CSS `margin: -4px` had been translated into `Modifier.padding(top = -4.dp)`, which compiles and
+    matches its golden; the emitter's comment justified it by citing "spec/04 trap 2", and spec/04 uses
+    the word "negative" zero times -- an invented citation that survived a green suite and two committed
+    goldens. Fixed at the cause (non-negative edges only, the dropped edge named with its px value),
+    pinned by a comment-stripped assertion whose RED was observed against the golden this task itself
+    committed, and trap 2 amended to say the true thing. Re-emitted and re-rendered: 0 crashes. **(b)**
+    the two `subscribed` states render PIXEL-IDENTICAL (crop of the 48dp toggle at 3x, bytes compared):
+    the icon is a constant where the hand-written card branches three ways on the boolean. Open, owned by
+    T7. **(c)** with the negatives gone the card is 180x264dp in a 180x272 frame -- the dropped margin is
+    load-bearing, so "omit and note it" is honest but not free, and replacing the slack is a decision
+    spec/04 does not make yet. Evidence kept in the gitignored `out/visual-2026-10-14/`.
   - **Decision, as T5 requires: grow it, do not throw it away.** Three parts are inheritable as they
     stand and re-deriving them would only re-pay the traps: `tools/browser.mjs`'s offline materializer,
     `tools/capture.mjs` (32 tests, the reduction and inheritance rules it had to learn), and
@@ -578,6 +601,16 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     defaults as input), states from `data-state` plus `style-hover`/`style-pressed`/`style-focus`,
     callbacks only from controls with evidence. The upgrade the real format handed us: old T3 had to
     infer a prop list, this one mostly reads one.
+  - **Carried in from T5/WU7, measured on-device and not yet fixed:** the toggle's STATE has no
+    appearance. `checked = subscribed` is wired, but the emitted icon, `contentDescription` and tint are
+    constants, so both values of the boolean render pixel-identical (measured by cropping the 48dp region
+    at 3x and comparing bytes). The hand-written card branches three ways on the same boolean --
+    `Icons.Filled.BookmarkAdded` vs `Icons.Outlined.BookmarkAdd`, `"Unsubscribe"` vs `"Subscribe"`,
+    `primary` vs `onSurfaceVariant`. The fixture already carries the truth for the branch (the reference's
+    own `renderVals` swaps the glyph, and `data-props` declares the boolean), so the on-state is a fact to
+    extract -- but it needs a rule naming WHERE that second glyph comes from, not a value copied from the
+    hand-written file, which is the authority-by-memory this repo has already rejected twice. No existing
+    check can catch this: a golden pins one render, and one render of one state cannot fail.
 
 - [ ] T8 Compose emitter
   - Blocked by: T7
@@ -656,8 +689,11 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
 - T5 has its answer in writing as of 2026-10-14 (grow, not throw away), and WU6 (`ded3e16`) paid most of
   its schema debt; what is left of T6's blocker is one human decision, named in the T6 debt above, about
   the field that would carry a clickable surface's boolean. What T5 did NOT retire is the visual half of its own acceptance: the
-  emitted card has compiled and has never been rendered. Anyone who runs it and finds the geometry wrong
-  should treat that as a new measurement, not as a surprise.
+  emitted card has now been rendered (WU7, `emulator-5554`), and the render earned its keep: a launch crash
+  from a negative Compose padding (fixed, with the invented spec/04 citation that justified it) and an
+  invisible toggle state (open, carried into T7). The geometry is close but not equal: 180x264dp against
+  the frame's 180x272, because the two `-4px` margins have nowhere legal to go. Anyone who renders it
+  should treat a difference from the frame as a new measurement, not as a surprise.
 - The highest-value artifact in this repository is the golden suite, not the CLI.
 - The two seductive failures: prose rules instead of checks, and letting a model resolve a mapping
   because writing the table is slower. Both destroy reproducibility, the one property worth

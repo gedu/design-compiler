@@ -76,7 +76,7 @@ Two consequences that outrank everything below:
 Status as of 2026-10-14: **T0, T1, T2, T2.5, T3, T3.1 are done, and T5 has its answer written down.**
 The input side is built, and the first emitter exists: \`tools/capture.mjs\` (frame to the spec/02 tree)
 and \`tools/emit-compose.mjs\` (that tree to \`Color.kt\`, \`Theme.kt\` and one composable, in a
-\`ui.generated\` package). \`npm test\` is 197 tests.
+\`ui.generated\` package). \`npm test\` is 198 tests.
 
 T5's decision is recorded in \`odd/tasks/design-compiler.md\`: **grow it into T6, do not throw it
 away**, with two named debts. **Debt 1 was paid on 2026-10-14 (\`ded3e16\`), except one decision that
@@ -99,10 +99,23 @@ already takes the IR as a parameter.
 (up-to-date-is-not-a-green-oracle) says: emit first, \`cmp\` the freshly written bytes against the
 goldens in the tree that actually compiles, and force the task with \`--rerun\`, because
 \`BUILD SUCCESSFUL\` with \`compileKotlinJvm UP-TO-DATE\` reuses a previous verdict and proves nothing
-about the bytes in front of you. Nobody has seen it render. Every render host needs
-a file written into the workshop repo, which carries the human's uncommitted WIP, so this spike did not
-write one. \`emulator-5554\` is attached on this machine, so the check is one approved preview host away,
-not a build away. Say so before calling T5 finished.
+about the bytes in front of you. **It has been rendered, and rendering found two defects the compile
+never could** (\`docs/lessons.md\`: negative-padding-crashes, toggle-state-invisible; evidence in the
+gitignored \`out/visual-2026-10-14/\`). First: the card died on launch with
+\`IllegalArgumentException: Padding must be non-negative\` -- a CSS \`margin: -4px\` had been emitted as
+\`Modifier.padding(top = -4.dp)\`, which compiles and matches its golden, and the app crashes. Fixed at
+the emitter (non-negative edges only, the dropped edge named with its px value), pinned by a
+comment-stripped assertion, and spec/04 trap 2 now says the true thing after the emitter's comment
+cited it for a rule it never stated. Second, STILL OPEN: the two \`subscribed\` states render
+pixel-identical, because the icon is a constant where the hand-written card branches on the boolean for
+glyph, \`contentDescription\` and tint. That one belongs to T7 (states), not to a quick fix.
+A render host is cheap and additive: \`git worktree add\` off the same clone (never touch the human's
+dirty tree), the scratch composable in \`:shared\` (androidApp measures compose.foundation, so it is not
+on its classpath), the activity declared in that worktree's manifest (\`am start\` cannot launch an
+undeclared component), and \`applicationIdSuffix \".spike\"\` so it installs beside the human's app and
+uninstalls clean. \`emulator-5554\` is attached on this machine. Say all of this before calling T5
+finished: the geometry half is now observed and roughly right (the card is 264dp in a 272dp frame), but
+the state half is known-broken, which is a different and worse finding than never having looked.
 
 - **T2** added \`node tools/validate.mjs <dir> --json\` (\`npm run validate\`): 24 static checks, 6
   reported \`unimplemented\`, exit codes 0/1/2/3/4 where **4 means the input itself is unreadable or

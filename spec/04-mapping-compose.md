@@ -99,6 +99,17 @@ The design was authored in CSS, so two behaviors must be translated rather than 
   Compose never does. A design with \`margin: 8px\` on every card produces 8dp gaps in the browser and
   16dp in Compose. When margins collapse in the captured layout, emit the collapsed value and drop
   the per-node margin, and prefer converting repeated sibling margins into one \`Arrangement.spacedBy\`.
+- **A negative margin has no Compose padding at all, and emitting one is a crash, not a bug.** CSS
+  pulls an element up with \`margin: -4px\`; \`Modifier.padding()\` rejects a negative value and throws
+  \`IllegalArgumentException: Padding must be non-negative\` from \`PaddingElement\>'s constructor (measured
+  on-device: the card compiled, matched its golden, and the app died on launch). So a negative edge is
+  never emitted as padding, and it is never silently dropped either: the emitted file names the node,
+  the px value and the edge it lost, because the value is load-bearing (this fixture renders 264dp in a
+  272dp frame once the two \`-4px\` margins go). What *should* replace it is open and belongs to a human,
+  not to the emitter: \`offset()\` is legal but choosing an offset would be the converter inventing
+  geometry the design never stated, and the likely real answer is that the slack belongs to the text
+  line box rather than to the margin at all. Until that call is made, omission plus a loud note is the
+  honest output.
 
 ### 3. Modifier order is semantics
 

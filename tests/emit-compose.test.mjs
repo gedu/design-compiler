@@ -351,7 +351,36 @@ test('an emission decision is said once per node, never twice', () => {
   // The guard must not be vacuous: if the note block ever stopped carrying decisions, this test would
   // pass while checking nothing. The fixture is measured to produce these, so pin that it still does.
   assert.ok(counts.size >= 5, `expected the emission to explain itself (${counts.size} distinct decision notes)`);
-  assert.ok(raw.includes('negative CSS margin emitted as Compose padding'), 'the negative-margin note the duplicate rode on is still emitted');
+  // Anchored on the FACT (the node and its px value are named), not on the wording: the sentence
+  // around it is prose and gets reworded, and a check that breaks on punctuation is a check people
+  // switch off. Measured on this fixture, the author row is the node the duplicate rode on.
+  assert.match(raw, /^\/\/ {2,}n:node-0-0-0-2: CSS margin -4px top/m, 'the negative-margin note the duplicate rode on is still emitted');
+});
+
+test('no negative padding reaches the emitted code: Compose would throw at runtime', () => {
+  // spec/10: this one became a check, and it is the check a compile could never be. The emitter used
+  // to translate a CSS negative margin straight into Modifier.padding(top = -4.dp). That COMPILES --
+  // and the app then dies on launch with IllegalArgumentException "Padding must be non-negative"
+  // thrown from PaddingElement (measured on the emulator, first render of the card ever). A golden
+  // diff and a compiler both bless it, because the failure is a runtime one in code that is perfectly
+  // well-formed. So the assertion is made on the emitted text, comment-stripped: the file documents
+  // the very value it must not emit, and code() is what keeps those two apart.
+  const src = code(realEmission().files['PodcastCard.kt']);
+  const neg = src.match(/padding\([^)]*-\s*[\d.]+\.dp/g) || [];
+  assert.deepEqual(neg, [], `emitted padding must never be negative (Compose throws): ${neg.join(' | ')}`);
+  // Non-vacuous: this fixture authors negative margins, so the honest omission MUST be reported.
+  // A file that quietly dropped the whole note would pass the assertion above while hiding the loss.
+  const raw = realEmission().files['PodcastCard.kt'];
+  // Both nodes the fixture authors with a negative margin must be reported BY NAME, with their px
+  // values. Counting sentences would tie this to prose; naming the node and the value is the part
+  // that must survive any rewording. Measured on fixtures/annotated: the author row carries -4px top,
+  // the toggle carries -4px on top/right/bottom (source: margin: -4px -4px -4px 0 on the button).
+  assert.match(raw, /^\/\/ {2,}n:node-0-0-0-2: CSS margin -4px top/m, 'the author row names the edge it dropped');
+  assert.match(raw, /^\/\/ {2,}n:podcast-card-subscribe-toggle: CSS margin -4px top, -4px right, -4px bottom/m,
+    'the toggle names all three edges it dropped, not just a count');
+  // And the note must say WHY, or a bare "margin dropped" would pass while hiding an illegal value.
+  // Loose on purpose: the phrase, not the sentence.
+  assert.match(raw, /negative padding/i, 'the omission states the Compose reason, not just the omission');
 });
 
 test('the @Preview and FakeData the design can answer exist; the screen it cannot is absent', () => {

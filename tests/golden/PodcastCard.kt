@@ -89,7 +89,7 @@ fun PodcastCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = -4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -104,7 +104,6 @@ fun PodcastCard(
                 IconToggleButton(
                     checked = subscribed,
                     onCheckedChange = { onToggle() },
-                    modifier = Modifier.padding(top = -4.dp, end = -4.dp, bottom = -4.dp),
                 ) {
                     Box(
                         modifier = Modifier.size(40.dp),
@@ -160,6 +159,6 @@ private fun PodcastCardPreview() {
 //   n:podcast-card-subscribe-toggle: aria-pressed driven by boolean "subscribed" becomes a checked parameter (spec/02)
 //   n:node-0-0-0-2-1-0: declares CircleShape but paints no background in the captured state; nothing emitted to round -- the shape belongs to a hover/selected state (spec/02 states), which is a TODO, not a guess
 //   n:podcast-card-cover: aspectRatio(1f) kept and the measured height 160 dropped (spec/04 trap 7)
-//   n:node-0-0-0-2: negative CSS margin emitted as Compose padding(top = -4.dp); spec/04 trap 2 -- margins do not collapse here
+//   n:node-0-0-0-2: CSS margin -4px top is NOT emitted -- Compose rejects negative padding (measured on-device: IllegalArgumentException "Padding must be non-negative" from PaddingElement, the app dies on launch). The edge is dropped, not guessed, so the box is smaller than the design drew (measured on this fixture: the card renders 264dp inside a 272dp frame). How to cancel that line-height slack WITHOUT a negative padding is a mapping decision spec/04 does not make yet: TODO for a human, never a value invented here.
 //   n:podcast-card-subscribe-toggle: IconToggleButton already implies the authored 48dp target (pinned KDoc), so no size is emitted (spec/04)
-//   n:podcast-card-subscribe-toggle: negative CSS margin emitted as Compose padding(top = -4.dp, end = -4.dp, bottom = -4.dp); spec/04 trap 2 -- margins do not collapse here
+//   n:podcast-card-subscribe-toggle: CSS margin -4px top, -4px right, -4px bottom is NOT emitted -- Compose rejects negative padding (measured on-device: IllegalArgumentException "Padding must be non-negative" from PaddingElement, the app dies on launch). The edge is dropped, not guessed, so the box is smaller than the design drew (measured on this fixture: the card renders 264dp inside a 272dp frame). How to cancel that line-height slack WITHOUT a negative padding is a mapping decision spec/04 does not make yet: TODO for a human, never a value invented here.

@@ -259,13 +259,23 @@ function modifierOf(n, ctx, opts) {
     if (size.height) ctx.note(`${n.id}: aspectRatio(${floatLit(size.aspect)}) kept and the measured height ${size.height} dropped (spec/04 trap 7)`);
   }
 
-  // A CSS margin is Compose padding applied outside the paint. Negative values are kept, not
-  // dropped: they are how the design pulled a row up to cancel line-height slack, and dropping one
-  // silently moves the layout.
-  const margin = paddingArgs(layout.margin || {});
-  if (margin) {
-    parts.margin.push(`padding(${margin})`);
-    if (/=\s*-/.test(margin)) ctx.note(`${n.id}: negative CSS margin emitted as Compose padding(${margin}); spec/04 trap 2 -- margins do not collapse here`);
+  // A CSS margin is Compose padding applied outside the paint -- but only in one direction. Compose
+  // REJECTS a negative padding: `Modifier.padding(top = -4.dp)` throws IllegalArgumentException
+  // "Padding must be non-negative" from PaddingElement's constructor (measured on-device, and it was
+  // the very first thing the rendered card did -- it compiled, the goldens certified it, and the app
+  // crashed on launch). So a negative edge cannot be emitted and cannot be silently dropped either:
+  // it is how the design pulled a row up to cancel line-height slack, and losing it moves the layout.
+  // Emit the non-negative edges, name the dropped ones with their px values, and say the decision is
+  // owed rather than resolving it here -- translating it to offset()/size() would be this tool
+  // inventing geometry, which invariant 2 forbids. spec/04 trap 2 is NOT an authority for the old
+  // behaviour: it is about border/padding domains and about POSITIVE margins not collapsing, and the
+  // word "negative" appears in spec/04 zero times (measured).
+  const neg = Object.entries(layout.margin || {}).filter(([, v]) => Number(v) < 0);
+  const posEdges = Object.fromEntries(Object.entries(layout.margin || {}).map(([k, v]) => [k, Number(v) < 0 ? 0 : v]));
+  const margin = paddingArgs(posEdges);
+  if (margin) parts.margin.push(`padding(${margin})`);
+  if (neg.length) {
+    ctx.note(`${n.id}: CSS margin ${neg.map(([k, v]) => `${v}px ${k}`).join(', ')} is NOT emitted -- Compose rejects negative padding (measured on-device: IllegalArgumentException "Padding must be non-negative" from PaddingElement, the app dies on launch). The edge is dropped, not guessed, so the box is smaller than the design drew (measured on this fixture: the card renders 264dp inside a 272dp frame). How to cancel that line-height slack WITHOUT a negative padding is a mapping decision spec/04 does not make yet: TODO for a human, never a value invented here.`);
   }
 
   if (paint.background?.role && !opts.backgroundHandledByColors) {
