@@ -69,6 +69,9 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | Path | What |
 | --- | --- |
 | tools/probe.mjs | what a real export actually is, re-measured: `node tools/vendor.mjs` once, then `node tools/probe.mjs` |
+| tools/browser.mjs | the shared frame-materialization transport: vendor router, offline guarantee, settle gate. Importable; `probe.mjs` is a thin caller so a second tool cannot re-implement the offline promise |
+| tools/capture.mjs | one materialized frame to the spec/02 Node tree, in memory: `node tools/capture.mjs --json` |
+| tools/resolve.mjs | the pure value resolvers (color to role, type, shape, elevation); ladders parsed from spec/03 at load: `node tools/resolve.mjs --selftest` |
 | tools/serve.mjs | loopback static server for an export, path-confined to one directory |
 | tools/validate.mjs | the contract table as executable checks: `npm run validate -- fixtures/reference` |
 | tools/property-map.mjs | which CSS properties a target owns, and the unknowns as a repair report: `npm run properties`, `npm run repair` |

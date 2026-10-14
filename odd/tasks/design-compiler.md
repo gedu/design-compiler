@@ -395,6 +395,46 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     compile it in the workshop `shared` module. No CLI, no IR file, no second target. If it compiles
     and looks like the frame, everything after is volume.
   - Decision to record: throw the spike away or grow it into T6. Say which, in writing.
+  - **WU1 refactor(browser) `7ee1f98`** -- extracted the vendor router and `materialize()` out of
+    `tools/probe.mjs` into `tools/browser.mjs` (183 lines out, 9 in) so a second tool cannot
+    re-implement the offline guarantee. `probe.mjs` is now a thin caller.
+  - **WU2 feat(fixtures) `5611ccb` + fix(probe) `e862085`** -- `fixtures/annotated/`: the reference
+    template plus hand-written `data-*`, on a board that renders exactly ONE card (frame id
+    `PodcastCard.compact`), validating at exit 0 with 0 errors. Also fixed the settle gate, which
+    decided settling with a global `querySelectorAll('*').length > 60` -- an artifact of the
+    reference board's size that reported a perfectly rendered 21-node card as not settled -- and
+    `renderHealthy`, which reported health while ignoring the page errors its own line claimed to
+    count.
+  - **WU3 docs(spec) `7b58bed` + `09263a4`** -- corrected spec/04's false material-icons premise
+    (the workshop does ship it, and the false premise was producing deliberately worse emission),
+    and recorded the runtime-span trap plus the measured capture values.
+  - **WU4a feat(resolve) `316b8b8`** -- `tools/resolve.mjs`: `readRoleMap`, `roleForColor`,
+    `roleForType`, `shapeForRadius`, `elevationForLevel`, with the type/shape/elevation ladders
+    PARSED from spec/03 at load rather than retyped. Three defects found by tests, not by reading:
+    `camelCase` used `toLowerCase`, `normalizeHex` dropped the `#`, and `readRoleMap` filed all 34
+    dark roles into the light bucket via the `@media`-enclosed `:root` (both buckets looked full).
+  - **WU4b feat(capture) (this change)** -- `tools/capture.mjs` + `tests/capture.test.mjs` (32
+    tests; `npm test` 170/170). One frame -> the spec/02 Node tree in memory, refusing instead of
+    writing a file. `npm run capture`, `--json`, exit 0 clean / 1 on an error diagnostic / 3 refused.
+    The five things it had to learn by measurement, each with the check that keeps it honest, are in
+    `docs/lessons.md` (2026-10-14): the runtime stamps its OWN `data-*` so spec/03's never-reduce row
+    is scoped to the contract set; the `var()` NAME survives the render and is the authority that
+    settles an ambiguous hex; `data-props`/`hint-size`/`onClick` DIE in the DOM so intent is read
+    from the template text; computed `color` and `cursor` are INHERITED and are not this node's paint;
+    and a dropped wrapper orphaned its whole subtree while exiting 0 and emitting a plausible
+    one-node document, which is now a hard count invariant. Two of this unit's own seven red tests
+    were wrong tests against correct code -- a `circle` asserted on the button that does not carry it,
+    and a `loadMs` scan that fired on the comment explaining the exclusion -- consistent with the
+    rule that a red test implicates the code only after its constant is checked against a source
+    outside it.
+  - **What WU4b proved, and what it did not.** Proved: the computed-style-to-Node-tree link is
+    mechanical, not judgmental, on a real materialized frame -- 11 nodes, every role from spec/02's
+    enum, all four measured colors resolving to their named roles, `titleSmall`/`bodySmall`/`labelMedium`
+    matched against spec/03's own table, elevation and both radii on their ladders, and byte-identical
+    output across two processes. Did NOT prove: that an emitter can compile. The remaining unknown is
+    the Node-tree-to-Kotlin link, which is WU5. It also surfaced a schema gap that T6 cannot inherit
+    silently (spec/02 has no field for a resolved type role, and its enum cannot name half of
+    spec/04's components) -- recorded as an open discrepancy in `docs/lessons.md` with T6 as owner.
 
 - [ ] T6 Extraction to a real IR on disk
   - Blocked by: T5 (T2.5 is done: `spec/13-bridge.md` defines what extraction may assume, and
