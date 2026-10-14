@@ -154,7 +154,19 @@ function pageDump(a) {
       styleAttr: el.getAttribute('style') || '',
       ariaLabel: el.getAttribute('aria-label'),
       title: el.getAttribute('title'),
-      ariaPressed: el.getAttribute('aria-pressed'),
+      // The three accessibility attributes that make a control on/off (spec/02, "A toggle is a
+      // different component than a button"). Reading only aria-pressed was the first version, and it
+      // is not the whole set: a switch says aria-checked and a disclosure says aria-expanded, so
+      // looking at one of them silently calls the other two plain buttons. The live value here is the
+      // RESOLVED one ("false"); the name of the boolean driving it survives only in the template text,
+      // which is why buildIr pairs the two through data-component.
+      ariaState: (() => {
+        for (const attr of ['aria-pressed', 'aria-checked', 'aria-expanded']) {
+          const value = el.getAttribute(attr);
+          if (value !== null) return { attr, value };
+        }
+        return null;
+      })(),
       htmlRole: el.getAttribute('role'),
       tabIndex: el.hasAttribute('tabindex'),
       box: {
@@ -288,6 +300,7 @@ export function readSourceFacts(dir) {
   const props = [];
   const hintSize = [];
   const callbacks = [];
+  const states = [];
   for (const file of templates) {
     const text = readFileSync(join(dir, file), 'utf8');
     for (const m of text.matchAll(/<script[^>]*data-dc-script[^>]*>/g)) {
@@ -304,8 +317,32 @@ export function readSourceFacts(dir) {
     for (const m of text.matchAll(/\bon([A-Z][A-Za-z]*)=(["'])\{\{\s*[\w.]+\s*\}\}\2/g)) {
       callbacks.push({ file, event: m[1].toLowerCase() });
     }
+    // The boolean driving a control's on/off state (spec/02 callback.stateProp) exists ONLY here. The
+    // runtime turns `aria-pressed="{{ subscribed }}"` into aria-pressed="false", so the live node can
+    // answer "is this a toggle" but never "which prop toggles it". data-component is the author's own
+    // key for putting the fact back on the right node, and it is in the contract set, so this is a
+    // lookup and not a guess. A literal value (no {{ }}) records prop: null: that design has a
+    // hardcoded toggle, and naming a parameter for it would invent a prop nobody declared.
+    for (const m of text.matchAll(/<(?:div|button|span|input|a|label|li|section)\b([^>]*)>/g)) {
+      const attrs = m[1];
+      const component = /data-component=(["'])([\w-]+)\1/.exec(attrs)?.[2] ?? null;
+      for (const attr of ['aria-pressed', 'aria-checked', 'aria-expanded']) {
+        const raw = new RegExp(attr + '=(["\'][^"\']*["\'])').exec(attrs)?.[1];
+        if (!raw) continue;
+        const value = raw.slice(1, -1).trim();
+        const hole = /^\{\{\s*([\w.]+)\s*\}\}$/.exec(value);
+        states.push({ file, component, attr, prop: hole ? hole[1] : null, literal: hole ? null : value });
+      }
+    }
   }
-  return { templates, props, hintSize, callbacks: [...new Set(callbacks.map((c) => c.event))].sort(), byFile: templates };
+  return {
+    templates,
+    props,
+    hintSize,
+    states,
+    callbacks: [...new Set(callbacks.map((c) => c.event))].sort(),
+    byFile: templates,
+  };
 }
 
 function decodeEntities(s) {
@@ -337,6 +374,28 @@ export function buildIr(dump, opts = {}) {
     const p = n.path.slice(0, n.path.lastIndexOf('.'));
     if (!childPaths.has(p)) childPaths.set(p, []);
     childPaths.get(p).push(n.path);
+  }
+
+  // spec/02 "A toggle is a different component than a button": the boolean driving a control's aria
+  // state comes from the template text, and it is only a state property if the data-props schema calls
+  // it a boolean. THREE facts have to agree before anything is claimed: the live element carries an
+  // aria state attribute, the same element's template declares a {{ }} hole on that same attribute, and
+  // the schema types that hole as boolean. Where they disagree, the caller keeps stateProp null and
+  // says which fact was missing, rather than naming a prop it cannot cite.
+  const booleanProps = new Set();
+  for (const entry of (opts.sourceFacts?.props || []).filter((p) => p.ok)) {
+    for (const [name, def] of Object.entries(entry.props || {})) {
+      if (!name.startsWith('$') && def?.tsType === 'boolean') booleanProps.add(name);
+    }
+  }
+  const toggleByComponent = new Map();
+  for (const s of opts.sourceFacts?.states || []) {
+    if (!s.component) continue;
+    if (toggleByComponent.has(s.component)) {
+      refusals.push(`component "${s.component}" declares two aria state attributes (${toggleByComponent.get(s.component).attr} and ${s.attr}): one control cannot be driven by two booleans and this tool will not pick`);
+      continue;
+    }
+    toggleByComponent.set(s.component, { attr: s.attr, prop: s.prop, literal: s.literal });
   }
 
   // Bottom-up, so a wrapper's "single child" test counts surviving children, not raw DOM children.
@@ -382,6 +441,8 @@ export function buildIr(dump, opts = {}) {
     return id;
   };
 
+  // `emit` recurses bottom-up, so by the time a control is emitted its children are already in here:
+  // pickRole can ask whether a control's subtree is icon-shaped instead of guessing from the tag.
   const nodes = {};
   const glyphNames = [];
   // A dropped wrapper's surviving descendants are re-parented THROUGH it, not deleted with it.
@@ -403,7 +464,9 @@ export function buildIr(dump, opts = {}) {
     const id = makeId(d);
     const kids = reducedChildren(path).map(emit).filter(Boolean);
     const own = [d.ownText, ...(carried.get(path) || [])].filter(Boolean).join(' ').trim() || null;
-    const node = emitNode(id, d, kids, own, { diagnostics, roleEnum, schemes: opts.schemes });
+    const node = emitNode(id, d, kids, own, {
+      diagnostics, roleEnum, schemes: opts.schemes, nodes, toggleByComponent, booleanProps,
+    });
     if (node.icon) glyphNames.push(node.icon.name);
     nodes[id] = node;
     return id;
@@ -478,9 +541,14 @@ function emitNode(id, d, childIds, ownText, ctx) {
   // childCount is the REDUCED child count, and it must be passed: omitting it leaves the default 0,
   // which makes every flex box a Box with no error and no diagnostic. It is the surviving-child
   // count, so a Row that reduction emptied is a container, not a layout with one member.
+  // The live aria state and the template's declaration of it, joined here so both pickRole and the
+  // callback below read ONE decision instead of re-deriving it twice.
+  const toggle = resolveToggle(d, ctx, { push, notes });
+
   const role = pickRole(id, d, {
     hasChildren, ownText, icon, glyphFont, roleEnum, notes, push, childCount: childIds.length,
     clickable: d.tag === 'button' || d.htmlRole === 'button' || declaresOwn(d.styleAttr, 'cursor'),
+    nodes: ctx.nodes, childIds, toggle,
   });
 
   const namedBg = roleNamedByIn(d.styleAttr, 'background');
@@ -503,23 +571,29 @@ function emitNode(id, d, childIds, ownText, ctx) {
     paint: paintOf(d, { schemes, push, id, notes, namedBg, namedFg }),
     // An icon's glyph string is not copy (measured: it renders the literal "terminal").
     text: icon ? null : ownText,
+    type: null,
     icon: icon ? { name: icon, source: glyphFont ? 'glyph-font' : 'markup', fill: fillAxis(s.variation) } : null,
     prop: c['data-prop'] ?? null,
     children: childIds,
     notes,
   };
 
-  // spec/02 has no field for a resolved type role; see the schema gap in docs/lessons.md. The
-  // resolver's answer is carried in notes as a structured string so nothing is invented into the
-  // schema here, and the emitter reads its own note format.
+  // The resolved type role is a schema field now (spec/02, Node.type), not a note. It used to ride in
+  // notes as a string because the schema had nowhere for it -- see the gap entry in docs/lessons.md --
+  // and a value this resolver already settled has no business living in a free-text array where no
+  // check can read it. What stays in notes is what the schema genuinely has no place for: the deltas
+  // that forced a `closest` match, and the roles that tied with the one chosen.
   const clamp = /^(none|normal)$/.test(String(s.clamp)) ? null : Number(s.clamp);
   if (node.text !== null) {
     const t = roleForType({ fontSize: s.fontSize, lineHeight: s.lineHeight, fontWeight: s.fontWeight, letterSpacing: s.letterSpacing });
-    notes.push(`type-role:${t.role} (${t.source})`);
+    node.type = {
+      role: t.role,
+      source: t.source,
+      lineClamp: clamp,
+      overflow: /hidden|clip/.test(String(s.overflow)) ? 'ellipsis' : null,
+    };
     if (Object.keys(t.deltas || {}).length) notes.push(`type-copy:${JSON.stringify(t.deltas)}`);
     if (t.candidates && t.candidates.length > 1) notes.push(`type-candidates:${t.candidates.join('|')}`);
-    if (clamp) notes.push(`max-lines:${clamp}`);
-    if (/hidden|clip/.test(String(s.overflow))) notes.push('text-overflow:ellipsis');
     if (t.diagnostic) push(t.diagnostic.code, t.diagnostic.severity, t.diagnostic.message, `text on ${d.tag}`);
     if (clamp && String(s.orient) !== 'vertical') push('clamp-without-orient', 'warn', `line-clamp ${clamp} without -webkit-box-orient: vertical`, `text on ${d.tag}`);
   } else if (clamp) {
@@ -539,7 +613,8 @@ function emitNode(id, d, childIds, ownText, ctx) {
       node.callback = {
         name: named,
         evidence: c['data-action'] ? 'data-action' : (d.ariaLabel ? 'aria-label' : 'title'),
-        state: d.ariaPressed !== null ? 'aria-pressed' : null,
+        state: toggle.state,
+        stateProp: toggle.stateProp,
         focusable: d.tag === 'button' || d.tabIndex,
       };
     } else {
@@ -551,10 +626,60 @@ function emitNode(id, d, childIds, ownText, ctx) {
   return node;
 }
 
-// spec/02's enum and spec/04's component table disagree, and spec/02's list has Row without Column.
-// Rather than invent a role the schema forbids, emit the closest allowed one and keep the intent.
+// spec/02 "A toggle is a different component than a button", implemented as three facts from three
+// sources that all have to agree. `state` is the live element's aria attribute; `stateProp` is the
+// template's {{ }} hole on that SAME attribute of the SAME data-component; and it only counts if the
+// data-props schema types that hole as boolean. Ask the DOM which prop toggles this and it answers
+// "false" -- the name exists only in the source text. Where the facts disagree, stateProp stays null
+// and the note says which fact was missing, because naming a prop the design never declared is the
+// invention spec/02 forbids.
+function resolveToggle(d, ctx, { push, notes }) {
+  const live = d.ariaState;
+  if (!live) return { state: null, stateProp: null };
+  const component = d.contract['data-component'] ?? null;
+  const base = { state: live.attr, stateProp: null };
+  if (!component) {
+    notes.push(`toggle-state-unpaired:${live.attr} carries no data-component, so the template's boolean cannot be named for it`);
+    return base;
+  }
+  const declared = ctx.toggleByComponent?.get(component);
+  if (!declared) {
+    notes.push(`toggle-state-unpaired:${live.attr} has no {{ }} hole on the same attribute in ${component}'s template`);
+    return base;
+  }
+  if (declared.attr !== live.attr) {
+    push('toggle-attr-mismatch', 'warn', `the live element carries ${live.attr} but ${component}'s template declares ${declared.attr}; this tool will not pair two different attributes`, `${d.tag} ${d.path}`);
+    return base;
+  }
+  if (!declared.prop) {
+    notes.push(`toggle-literal:${live.attr} is the literal "${declared.literal}" in the template, not a prop, so this design has a hardcoded toggle`);
+    return base;
+  }
+  if (!ctx.booleanProps?.has(declared.prop)) {
+    notes.push(`toggle-not-boolean:${declared.prop} is not declared tsType boolean in data-props, so it is not a state property`);
+    return base;
+  }
+  return { state: live.attr, stateProp: declared.prop };
+}
+
+// Every role below a node, flattened. Used only for the yes/no question "is this control's content an
+// icon", which is what makes IconToggleButton nameable; a toggle carrying text is a different widget
+// and this does not pretend to know which one.
+function subtreeRoles(nodes, ids, acc = []) {
+  for (const id of ids || []) {
+    const n = nodes?.[id];
+    if (!n) continue;
+    acc.push(n.role);
+    subtreeRoles(nodes, n.children, acc);
+  }
+  return acc;
+}
+
+// spec/02's enum was missing Column/Button/IconButton/IconToggleButton, which forced every one of them
+// into Box plus a note. That gap is closed, so this now names them for real. Where a role is still
+// outside the enum (Badge, List, Grid), emit the closest allowed one and keep the intent.
 function pickRole(id, d, ctx) {
-  const { hasChildren, ownText, icon, glyphFont, roleEnum, notes, push, clickable, childCount = 0 } = ctx;
+  const { hasChildren, ownText, icon, glyphFont, roleEnum, notes, push, clickable, childCount = 0, toggle } = ctx;
   const c = d.contract;
   const s = d.style;
   // Surviving children, passed in ctx by the caller. Read from the wrong place it is silently 0,
@@ -575,6 +700,19 @@ function pickRole(id, d, ctx) {
     return roleEnum.includes('Card') ? 'Card' : 'Box';
   }
   if (d.tag === 'button' || d.htmlRole === 'button') {
+    // The widget follows the state the design drew, and only an icon-shaped control can honestly be
+    // named IconToggleButton: a toggle whose content is text is ToggleButton or Switch, and deciding
+    // which from CSS is a guess this tool does not make. The boolean stays a parameter either way, so
+    // no state is lost, only the widget name -- and that gap is said out loud.
+    if (toggle?.state && toggle.stateProp) {
+      const roles = subtreeRoles(ctx.nodes, ctx.childIds);
+      if (roles.includes('Icon') && !roles.includes('Text')) {
+        if (roleEnum.includes('IconToggleButton')) return 'IconToggleButton';
+        conflict('IconToggleButton');
+      } else {
+        push('toggle-widget-unresolved', 'warn', `this control is a toggle driven by "${toggle.stateProp}" but its content is not icon-shaped, so no toggle widget is named; the boolean is still a parameter`, `${d.tag} ${id}`);
+      }
+    }
     const intended = hasChildren ? 'IconButton' : 'Button';
     if (!roleEnum.includes(intended)) { conflict(intended); notes.push('control:clickable'); return 'Box'; }
     return intended;
@@ -751,6 +889,11 @@ export async function captureFrame({
   root = HERE,
   settleTimeoutMs = 20000,
   viewport = { width: 1600, height: 2000 },
+  // Test seam only: run the build against a doctored role enum. spec/02's real enum now covers every
+  // role pickRole can propose, so the role-enum-conflict path has nothing left to fire on in this
+  // fixture -- which is exactly how a guard that proves "never invent a role" goes untested without
+  // anyone noticing. Null keeps the production path untouched (buildIr reads spec/02 itself).
+  roleEnum = null,
 } = {}) {
   const refuse = (refusals, extra = {}) => ({ ok: false, ir: null, diagnostics: [], refusals, ...extra });
   if (!existsSync(dir)) return refuse([`no input directory: ${dir}`]);
@@ -784,8 +927,26 @@ export async function captureFrame({
       if (b.width <= 0 || b.height <= 0 || el.childElementCount <= 0) return false;
       return !/\{\{[^}]{1,40}\}\}/.test(document.body.innerHTML);
     }, frame, { timeout: settleTimeoutMs }).then(() => true).catch(() => false);
-    const fontsBefore = await page.evaluate(() => document.fonts.ready.then(() => document.fonts.status)).catch(() => 'unknown');
-    const dump = await page.evaluate(pageDump, { frameId: frame, contractList: CONTRACT_ATTRS, carrierClass: INTERP_CLASS });
+    // Wait for the faces to settle BEFORE reading a single computed style. document.fonts.ready is not
+    // enough on this fixture: the icon face starts loading after it resolves, so a first draft read
+    // text metrics off a fallback font, and a second draft refused a perfectly good capture about a
+    // fifth of the time because a reading moved between two awaits. Refusing is not a fix -- the
+    // determinism invariant needs the measurement to happen in a settled state, so the wait is here
+    // and the check stays as the proof it worked.
+    const fontsSettled = await page.waitForFunction(() => document.fonts.status === 'loaded', null, {
+      timeout: settleTimeoutMs,
+    }).then(() => true).catch(() => false);
+    let dump = await page.evaluate(pageDump, { frameId: frame, contractList: CONTRACT_ATTRS, carrierClass: INTERP_CLASS });
+    // One bounded retry. pageDump samples document.fonts.status in the same synchronous pass as every
+    // computed style, so dump.fontsReady is the state the numbers were actually taken in; if a face
+    // started loading during that pass, the pass is discarded and taken again from a settled state
+    // rather than emitted and argued about.
+    let fontsRetried = false;
+    if (dump && !dump.error && dump.fontsReady !== 'loaded' && fontsSettled) {
+      fontsRetried = true;
+      await page.waitForFunction(() => document.fonts.status === 'loaded', null, { timeout: settleTimeoutMs }).catch(() => false);
+      dump = await page.evaluate(pageDump, { frameId: frame, contractList: CONTRACT_ATTRS, carrierClass: INTERP_CLASS });
+    }
     const unresolved = dump && !dump.error ? dump.unresolvedCount : 0;
     await ctx.close();
 
@@ -797,21 +958,27 @@ export async function captureFrame({
     if (blocked.length) refusals.push(`${blocked.length} blocked request(s): ${blocked.join(', ')} -- not pinned in .vendor/vendor-lock.json`);
     if (unresolved > 0) refusals.push(`${unresolved} unresolved {{ }} placeholder(s): the read would describe a template, not a design`);
     if (errors.length) refusals.push(`${errors.length} page error(s): ${errors.slice(0, 3).join(' | ')}`);
-    // The invariant is "the styles were read with the fonts settled", which is a property of the one
-    // read, not of two reads agreeing. An earlier version compared this status with the status read
-    // just before the dump, and refused a good capture about a fifth of the time: a late font face
-    // (the icon font starts loading after document.fonts.ready resolves) moved one reading, so the
-    // two disagreed while the styles themselves had been measured perfectly. pageDump samples the
-    // status in the same synchronous pass as every computed style, so what it reports is the state
-    // the measurement was actually taken in.
+    if (!fontsSettled) refusals.push(`document.fonts never reached "loaded" within ${settleTimeoutMs}ms: measured text would carry fallback-font metrics, which is a different design`);
+    // pageDump reports the font status sampled in the same synchronous pass as every computed style, so
+    // this is the state the numbers were taken in, not a later reading. The earlier gate compared this
+    // with a second reading taken after the dump, and refused a good capture about a fifth of the time:
+    // a late face moved one reading while the styles themselves had been measured perfectly. It is a
+    // real gate now: reaching it means the retry also found faces loading, so the measurement cannot be
+    // trusted, and a refusal here is correct rather than a flake.
     if (dump && !dump.error && dump.fontsReady !== 'loaded') {
-      refusals.push(`fonts were not settled when the styles were read: document.fonts.status = "${dump.fontsReady}" (before the dump: "${fontsBefore}") -- a measured style could come from a fallback font`);
+      refusals.push(`fonts were still not settled when the styles were read${fontsRetried ? ' again after one retry' : ''}: document.fonts.status = "${dump.fontsReady}" -- measured text could come from a fallback font`);
     }
-    if (refusals.length) return refuse(refusals, { fontsAtDump: dump && !dump.error ? dump.fontsReady : null, fontsBefore });
+    if (refusals.length) return refuse(refusals, { fontsAtDump: dump && !dump.error ? dump.fontsReady : null, fontsSettled, fontsRetried });
 
     const schemes = readRoleMap(readFileSync(tokenFile, 'utf8'));
+    // Read BEFORE the build, not attached after it: callback.stateProp is a source-side fact, and a
+    // buildIr that received its source facts after returning could not have used them. The earlier
+    // version attached this after the call, which silently made opts.sourceFacts undefined inside.
+    const sourceFacts = readSourceFacts(dir);
     const out = buildIr(dump, {
       schemes,
+      sourceFacts,
+      roleEnum,
       frameId: frame,
       theme,
       screen: frame.split('.')[0],
@@ -819,7 +986,7 @@ export async function captureFrame({
       tokensRef: 'tokens.json',
       tokensSha256: sha256File(join(dir, 'tokens.json')),
     });
-    out.sourceFacts = readSourceFacts(dir);
+    out.sourceFacts = sourceFacts;
     return out;
   } finally {
     if (mat) await mat.close();

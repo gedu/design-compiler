@@ -284,10 +284,18 @@ test('padding never mixes the two overload families in one call', () => {
 });
 
 test('layout: fill for a responsive width, dp only for an authored px, weight only in a Row', () => {
-  const src = code(realEmission().files['PodcastCard.kt']);
+  const raw = realEmission().files['PodcastCard.kt'];
+  const src = code(raw);
   assert.match(src, /Modifier\.fillMaxWidth\(\)/, 'the card declares width:100%');
   assert.match(src, /\.size\(40\.dp\)/, 'the toggle circle is authored 40px');
-  assert.match(src, /\.size\(48\.dp\)/, 'the toggle hit target is authored 48px');
+  // The 48dp target is authored in the design AND implied by the widget: the pinned IconButton/
+  // IconToggleButton KDoc states "overall minimum touch target size of 48 x 48dp", which is the
+  // authority for spec/04's "do not add a size". Emitting it again would fight the widget's own
+  // minimum for no visual gain. The 40px circle INSIDE it is not implied by anything, so it stays.
+  assert.doesNotMatch(src, /\.size\(48\.dp\)/, 'IconToggleButton implies the 48dp target; spec/04 says do not add a size');
+  // The decision is recorded in the file's own note block, which code() strips -- read the raw text
+  // for it, or the check passes on the very file that forgot to say what it did.
+  assert.match(raw, /IconToggleButton already implies the authored 48dp target/, 'and the decision is said in the file, not silently taken');
   assert.doesNotMatch(src, /\.height\(160\.dp\)|\.width\(160\.dp\)/, 'a computed 160 must not be welded in (spec/04 trap 5/7)');
   assert.match(src, /aspectRatio\(1f\)/);
   assert.match(src, /Modifier\.weight\(1f\)/);
@@ -308,12 +316,42 @@ test('callbacks: exactly the two the design wires, in the order the schema decla
     'category: String',
     'title: String',
     'author: String',
+    // spec/02: on every target the boolean stateProp becomes a parameter of the component. It sits
+    // with the data it reflects, not with the callbacks -- the position authority is the hand-written
+    // card this one is compared against: (podcast, subscribed, onSubscribeClick, modifier).
+    'subscribed: Boolean',
     'onSelect: () -> Unit',
     'onToggle: () -> Unit',
     'modifier: Modifier = Modifier',
   ]);
   assert.match(src, /clickable\(onClick = onSelect\)/);
-  assert.match(src, /clickable\(onClick = onToggle\)/);
+  // The toggle's click belongs to the WIDGET now. IconToggleButton takes onCheckedChange, so emitting
+  // clickable(onClick = onToggle) as well would compile and fire the callback twice.
+  assert.match(src, /onCheckedChange = \{ onToggle\(\) \}/, 'the widget owns the click');
+  assert.match(src, /checked = subscribed/, 'the boolean the design declared is bound, not hardcoded');
+  assert.doesNotMatch(src, /clickable\(onClick = onToggle\)/, 'one click path per control, never two');
+});
+
+test('an emission decision is said once per node, never twice', () => {
+  // spec/10: this bug became a check, not a paragraph. Building the modifier once per node at the top
+  // of emitNode AND again inside the cases that emit their own (Card, IconButton, IconToggleButton)
+  // made modifierOf run twice for one node -- and every note it emits as a side effect landed in the
+  // file TWICE. It compiled, it looked right, and the goldens certified it: the duplicate was only
+  // visible because one of the two runs was on the toggle, where a doubled "negative margin" line
+  // stands out. A file that describes its own decisions must describe each one exactly once, or a
+  // reader cannot tell a taken decision from an artifact of the emitter's plumbing.
+  const raw = realEmission().files['PodcastCard.kt'];
+  const counts = new Map();
+  for (const line of raw.split('\n')) {
+    if (!/^\/\/ {2,}n:/.test(line)) continue;
+    counts.set(line, (counts.get(line) ?? 0) + 1);
+  }
+  const doubled = [...counts].filter(([, n]) => n > 1);
+  assert.deepEqual(doubled, [], 'a decision note appears more than once; two code paths emitted for one node');
+  // The guard must not be vacuous: if the note block ever stopped carrying decisions, this test would
+  // pass while checking nothing. The fixture is measured to produce these, so pin that it still does.
+  assert.ok(counts.size >= 5, `expected the emission to explain itself (${counts.size} distinct decision notes)`);
+  assert.ok(raw.includes('negative CSS margin emitted as Compose padding'), 'the negative-margin note the duplicate rode on is still emitted');
 });
 
 test('the @Preview and FakeData the design can answer exist; the screen it cannot is absent', () => {

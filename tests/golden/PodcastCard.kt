@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ fun PodcastCard(
     category: String,
     title: String,
     author: String,
+    subscribed: Boolean,
     onSelect: () -> Unit,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -99,9 +101,10 @@ fun PodcastCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Box(
-                    modifier = Modifier.size(48.dp).padding(top = -4.dp, end = -4.dp, bottom = -4.dp).clickable(onClick = onToggle),
-                    contentAlignment = Alignment.Center,
+                IconToggleButton(
+                    checked = subscribed,
+                    onCheckedChange = { onToggle() },
+                    modifier = Modifier.padding(top = -4.dp, end = -4.dp, bottom = -4.dp),
                 ) {
                     Box(
                         modifier = Modifier.size(40.dp),
@@ -129,13 +132,14 @@ private object FakeData {
     const val Category = "Tech"
     const val Title = "Compiled Weekly"
     const val Author = "Ada Moreno"
+    const val Subscribed = false
 }
 
 @Preview
 @Composable
 private fun PodcastCardPreview() {
     GeneratedTheme {
-        PodcastCard(category = FakeData.Category, title = FakeData.Title, author = FakeData.Author, onSelect = {}, onToggle = {})
+        PodcastCard(category = FakeData.Category, title = FakeData.Title, author = FakeData.Author, subscribed = FakeData.Subscribed, onSelect = {}, onToggle = {})
     }
 }
 
@@ -146,7 +150,6 @@ private fun PodcastCardPreview() {
 // [info] color-ambiguous n:podcast-card-title: #1D1B20 is onSurface (light), onBackground (light), surfaceContainerLow (dark); emitted onSurface by the documented order; the custom-property names the same role
 // [info] color-ambiguous n:author: #49454F is onSurfaceVariant (light), surfaceVariant (dark), outlineVariant (dark); emitted onSurfaceVariant by the documented order; the custom-property names the same role
 // [info] color-ambiguous n:node-0-0-0-2-1-0: #49454F is onSurfaceVariant (light), surfaceVariant (dark), outlineVariant (dark); emitted onSurfaceVariant by the documented order; the custom-property names the same role
-// [warn] role-enum-conflict n:podcast-card-subscribe-toggle: spec/04 maps this to IconButton but spec/02's enum does not list it; emitted the closest allowed role and kept the intent in notes
 // [warn] callback-inferred n:podcast-card: a control carries no data-action, aria-label or title to name the callback from
 //
 // Callback pairing, with the evidence spec/02 demands (never an invented name):
@@ -154,7 +157,9 @@ private fun PodcastCardPreview() {
 //   onToggle <- n:podcast-card-subscribe-toggle (aria-label)
 //
 // Emission decisions taken from the IR, so the reading is checkable:
+//   n:podcast-card-subscribe-toggle: aria-pressed driven by boolean "subscribed" becomes a checked parameter (spec/02)
 //   n:node-0-0-0-2-1-0: declares CircleShape but paints no background in the captured state; nothing emitted to round -- the shape belongs to a hover/selected state (spec/02 states), which is a TODO, not a guess
 //   n:podcast-card-cover: aspectRatio(1f) kept and the measured height 160 dropped (spec/04 trap 7)
 //   n:node-0-0-0-2: negative CSS margin emitted as Compose padding(top = -4.dp); spec/04 trap 2 -- margins do not collapse here
+//   n:podcast-card-subscribe-toggle: IconToggleButton already implies the authored 48dp target (pinned KDoc), so no size is emitted (spec/04)
 //   n:podcast-card-subscribe-toggle: negative CSS margin emitted as Compose padding(top = -4.dp, end = -4.dp, bottom = -4.dp); spec/04 trap 2 -- margins do not collapse here

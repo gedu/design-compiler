@@ -74,6 +74,18 @@ const MEASURED = {
 
 const ROLE_ENUM = cap.readRoleEnum(spec02);
 
+// spec/02's own Node shape block, parsed: the set of fields a Node may carry. Read from the spec and
+// not retyped here -- the hand-written set this suite used to carry had already fallen behind the
+// schema, so it failed over a field the spec does define. A guard that has to be hand-synced with the
+// document it guards is not a guard.
+const nodeShapeFields = (spec) => {
+  const at = spec.indexOf('A Node is a DOM element');
+  assert.ok(at >= 0, 'spec/02 has no "A Node is a DOM element" section to read the Node shape from');
+  const block = /~~~json\n([\s\S]*?)\n~~~/.exec(spec.slice(at));
+  assert.ok(block, 'spec/02 has no ~~~json Node shape block to check against');
+  return new Set(Object.keys(JSON.parse(block[1])));
+};
+
 // ---------- one capture, many claims ----------
 
 let capture = null;
@@ -126,15 +138,18 @@ test('the clamp and the box come from the OWNER, not from the runtime text span'
   const title = await node('n:podcast-card-title');
   // docs/lessons.md: the div reports clamp 2 / min-height 40px / the div is 160x40, while its child
   // span reports clamp none and a 110x16 ink box. Reading leaves loses maxLines silently.
-  assert.ok(title.notes.includes('max-lines:2'), `title must carry clamp 2, notes were ${JSON.stringify(title.notes)}`);
+  // The clamp is a field now (spec/02 Node.type.lineClamp), not a note: a number parked in a
+  // free-text array is a value no check can hold an emitter to. The ancestor rule itself is unchanged
+  // -- same owner, same 2, same 160x40 -- only the place it is read from moved.
+  assert.equal(title.type.lineClamp, 2, `title must carry clamp 2, type was ${JSON.stringify(title.type)}`);
+  assert.equal(title.type.overflow, 'ellipsis', 'overflow hidden on the owner is the ellipsis signal');
   assert.equal(title.box.h, 40, 'the owner box is 40 tall, not the span ink height');
   assert.equal(title.box.w, 160, 'the owner box is 160 wide');
   assert.equal(title.text, 'Compiled Weekly', "the carrier's string moved to its owner");
-  assert.ok(title.notes.includes('text-overflow:ellipsis'), 'overflow hidden on the owner is the ellipsis signal');
 
   const author = await node('n:author');
   assert.equal(author.box.h, 32, 'docs/lessons.md: the author div clamps at 2 lines of 16px');
-  assert.ok(author.notes.includes('max-lines:2'));
+  assert.equal(author.type.lineClamp, 2, 'the clamp came up from the owner here too');
 });
 
 test('no runtime text carrier survives as a node', async () => {
@@ -177,7 +192,12 @@ test('no glyph name appears in any text field anywhere in the tree', async () =>
 test('every emitted role is in spec/02\'s enum, parsed from spec/02', async () => {
   const r = await theCapture();
   assert.ok(ROLE_ENUM.includes('Card') && ROLE_ENUM.includes('Icon') && ROLE_ENUM.includes('Text'));
-  assert.ok(!ROLE_ENUM.includes('Column'), 'this test is only honest if Column really is absent');
+  // The honesty guard, MOVED rather than dropped. It used to name Column, and the absence it measured
+  // is now closed (spec/02 lists Column, Button, IconButton and IconToggleButton). Badge, List and Grid
+  // are the roles spec/04 maps that spec/02 still does not list -- measured on both documents here --
+  // so the assertion still measures a real absence instead of asserting a comfort.
+  assert.ok(!ROLE_ENUM.includes('Badge'), 'this test is only honest if Badge really is absent from spec/02');
+  assert.ok(!ROLE_ENUM.includes('List') && !ROLE_ENUM.includes('Grid'), 'spec/04 maps List and Grid too, still outside the enum');
   for (const [id, n] of Object.entries(r.ir.nodes)) {
     assert.ok(ROLE_ENUM.includes(n.role), `${id} has role "${n.role}", which spec/02 does not list`);
   }
@@ -194,10 +214,34 @@ test('a declared surface outranks being clickable: the card is a Card, not a but
 test('where spec/04 wants a role spec/02 does not list, the IR says so instead of inventing one', async () => {
   const r = await theCapture();
   const toggle = r.ir.nodes['n:podcast-card-subscribe-toggle'];
-  assert.ok(!ROLE_ENUM.includes('IconButton'), 'the conflict is real, not hypothetical');
-  assert.equal(toggle.role, 'Box', 'the closest role the schema allows');
-  assert.ok(toggle.notes.includes('role-intended:IconButton'));
-  assert.ok(r.diagnostics.some((d) => d.code === 'role-enum-conflict' && d.node === toggle.id));
+  // The gap this test pinned is CLOSED, and the closing is what it measures now: the toggle is the
+  // component spec/04 names, carrying the boolean the design itself drew, with nothing left to hide.
+  assert.equal(toggle.role, 'IconToggleButton', 'spec/02 lists the role spec/04 maps for an icon-shaped toggle');
+  assert.equal(toggle.callback.state, 'aria-pressed', 'read off the live element, so it is a fact and not an inference');
+  assert.equal(toggle.callback.stateProp, 'subscribed', 'the name comes from the template hole, never from the model');
+  assert.ok(!r.diagnostics.some((d) => d.code === 'role-enum-conflict'),
+    'a complete enum leaves nothing to conflict about; one appearing here means a role went missing from spec/02');
+
+  // The guard itself, anchored on the MECHANISM rather than on an absence in the fixture. With the real
+  // enum there is no role left for pickRole to want and not find -- measured: this frame carries no
+  // role-intended note at all -- so pinning it to Badge would assert a path the extractor cannot reach
+  // (nothing in capture.mjs ever proposes Badge; the comment naming it is aspirational, not a branch).
+  // So take the real enum, drop the ONE role spec/04 wants for this control, and require the old honest
+  // behaviour back: emit the closest allowed role, keep the intent in notes, raise the diagnostic, and
+  // invent nothing.
+  const doctored = ROLE_ENUM.filter((role) => role !== 'IconToggleButton');
+  assert.ok(!doctored.includes('IconToggleButton') && doctored.includes('IconButton'),
+    'the doctored enum must lack exactly the one role spec/04 wants, not the whole control family');
+  const gapped = await cap.captureFrame({
+    dir: FIXTURE, frame: FRAME, theme: 'light', roleEnum: doctored, settleTimeoutMs: 8000,
+  });
+  assert.equal(gapped.ok, true, `refusals: ${gapped.refusals.join('; ')}`);
+  const fallback = gapped.ir.nodes['n:podcast-card-subscribe-toggle'];
+  assert.equal(fallback.role, 'IconButton', 'the closest role the schema allows, never a name out of thin air');
+  assert.ok(fallback.notes.includes('role-intended:IconToggleButton'), 'the intent survives in notes');
+  assert.ok(gapped.diagnostics.some((d) => d.code === 'role-enum-conflict' && d.node === fallback.id),
+    'the conflict is a diagnostic, not a silent substitution');
+  assert.equal(fallback.callback.stateProp, 'subscribed', 'losing the widget name must not lose the boolean');
 });
 
 test('a flex box with more than one surviving child is a Row; a lone one is a container', async () => {
@@ -237,18 +281,23 @@ test('an ambiguous hex is settled by the custom property the element itself decl
   assert.equal(info.severity, 'info', 'it is settled, so it is no longer a warning');
 });
 
-test('type roles match spec/03\'s table read from spec/03', async () => {
-  const expect = (notes, role) => {
-    const row = typeRow(role);
-    assert.ok(notes.some((x) => x.startsWith(`type-role:${role} (`)), `expected ${role}, notes were ${JSON.stringify(notes)}`);
-    return row;
+test('type roles match spec\'03\'s table read from spec/03', async () => {
+  // spec/02 gives the resolved type role a field of its own (Node.type), so this reads the field. It
+  // used to scrape notes, which is exactly the schema gap this closed.
+  const expect = (n, role) => {
+    typeRow(role);                                   // fails the test if spec/03 has no such role
+    assert.ok(n.type, `${n.id} carries no type role`);
+    assert.equal(n.type.role, role, `expected ${role}, got ${JSON.stringify(n.type)}`);
+    assert.ok(['scale', 'closest'].includes(n.type.source), `spec/02 allows source scale or closest, got "${n.type.source}"`);
   };
-  expect((await node('n:podcast-card-title')).notes, 'titleSmall');
-  expect((await node('n:author')).notes, 'bodySmall');
-  expect((await node('n:category')).notes, 'labelMedium');
+  expect((await node('n:podcast-card-title')), 'titleSmall');
+  expect((await node('n:author')), 'bodySmall');
+  expect((await node('n:category')), 'labelMedium');
   // The collision spec/03 itself warns about: titleSmall and labelLarge share 14/20 and 0.1/500.
   const title = await node('n:podcast-card-title');
   assert.ok(title.notes.some((x) => x.startsWith('type-candidates:')), 'the tie is reported, not silently broken');
+  // spec/02: null on a node that holds no text. A surface has no copy to type.
+  assert.equal((await node('n:podcast-card')).type, null, 'a node with no text resolves no type role');
 });
 
 test('shape and elevation resolve on the ladders spec/03 states', async () => {
@@ -465,13 +514,23 @@ test('the prop schema is read from the template text, because the render consume
   assert.deepEqual(facts.callbacks, ['blur', 'click', 'focus']);
 });
 
-test('the IR carries no field spec/02 does not define, except the one it records', async () => {
+test('the IR carries no field spec/02 does not define', async () => {
   const r = await theCapture();
-  const SHAPE = new Set(['id', 'tag', 'component', 'role', 'states', 'intent', 'box', 'layout', 'size', 'paint', 'text', 'icon', 'prop', 'children', 'notes']);
+  const SHAPE = nodeShapeFields(spec02);
   const extra = new Set();
   for (const n of Object.values(r.ir.nodes)) for (const k of Object.keys(n)) if (!SHAPE.has(k)) extra.add(k);
-  assert.deepEqual([...extra], ['callback'],
-    'callback is the one field this spike needed and spec/02 has no shape for; it is declared in docs/lessons.md, not smuggled');
+  assert.deepEqual([...extra], [],
+    'every field the IR emits is declared in spec/02\'s Node shape block; a smuggled field belongs in an amendment, not in an emitter');
+  // type and callback are the two fields this spike needed. They are IN the schema now, which is the
+  // whole point -- assert their presence in the spec so deleting either cannot quietly restore the
+  // old "callback is the one exception" state this test used to certify.
+  for (const field of ['type', 'callback']) {
+    assert.ok(SHAPE.has(field), `spec/02's shape block no longer declares ${field}`);
+  }
+  // spec/02: the callback belongs to the ONE node a control is. More than one means a control was
+  // invented; zero means the toggle lost the boolean this whole unit exists to carry.
+  const named = Object.values(r.ir.nodes).filter((n) => n.callback).map((n) => n.id);
+  assert.deepEqual(named, ['n:podcast-card-subscribe-toggle'], 'one control, one callback');
 });
 
 test('everything this unit authors is ASCII', () => {

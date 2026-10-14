@@ -59,7 +59,13 @@ const GENERATOR = 'tools/emit-compose.mjs';
 
 // spec/02's enum roles this emitter can write. Anything else is a refusal, not a Box-shaped fallback:
 // an unmapped role quietly emitted as a Box is how a converter ships a plausible wrong layout.
-export const KNOWN_ROLES = ['Card', 'Row', 'Box', 'Text', 'Icon'];
+//
+// `Button` is deliberately absent, and it is not an oversight: spec/04 chooses among Button,
+// FilledTonalButton, OutlinedButton and TextButton by which color-role pair the computed background
+// and foreground carry, and none of that is exercised by this fixture. Writing one branch today on
+// the strength of a table row nobody has compiled is the exact mistake `Shapes(full = ...)` was. It
+// refuses, and the refusal names the row that still has to be done, which is T8's work.
+export const KNOWN_ROLES = ['Card', 'Column', 'Row', 'Box', 'Text', 'Icon', 'IconButton', 'IconToggleButton'];
 
 // spec/04 trap 3, canonical order. One array, one loop, so two nodes of one design cannot disagree.
 // `margin` sits before background because a CSS margin is OUTSIDE the painted box: the Compose
@@ -104,6 +110,7 @@ const decode = (s) => String(s).replace(/&quot;/g, '"').replace(/&lt;/g, '<').re
 export function readCallbackNames(dir) {
   const files = readdirSync(dir).filter((f) => f.endsWith('.dc.html')).sort();
   const voidProps = [];
+  const boolProps = [];
   const holesInOrder = [];
   const holeToProp = new Map();
   for (const file of files) {
@@ -115,6 +122,10 @@ export function readCallbackNames(dir) {
       for (const [name, def] of Object.entries(schema)) {
         const ts = def && typeof def.tsType === 'string' ? def.tsType.trim() : '';
         if (/^\(\)\s*=>\s*void$/.test(ts) && !name.startsWith('$')) voidProps.push(name);
+        // A toggle's boolean needs its OWN default, and the only honest source for it is the schema:
+        // `subscribed` defaults to false there, so the preview renders what the design rendered. A
+        // default picked here would be a value this tool resolved, which invariant 2 forbids.
+        if (ts === 'boolean' && !name.startsWith('$')) boolProps.push({ name, default: def.default ?? false });
       }
     }
     for (const m of text.matchAll(/\bonclick=(["'])\{\{\s*([\w.]+)\s*\}\}\1/gi)) holesInOrder.push(m[2]);
@@ -123,7 +134,7 @@ export function readCallbackNames(dir) {
     }
   }
   const byHole = holesInOrder.map((h) => ({ hole: h, prop: holeToProp.get(h) ?? null }));
-  return { voidProps, holesInOrder, byHole };
+  return { voidProps, boolProps, holesInOrder, byHole };
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +219,20 @@ function modifierOf(n, ctx, opts) {
   // names, and the hand-written card it is compared against uses no such width.
   const pxW = authored.width === 'px' ? size.width : null;
   const pxH = authored.height === 'px' ? size.height : null;
-  if (authored.width === 'px' && authored.height === 'px' && pxW && pxW === pxH) {
+  // A widget that already implies a target size needs no authored size when the two agree. The number
+  // is not a style preference: the pinned IconButton/IconToggleButton KDoc says "overall minimum touch
+  // target size of 48 x 48dp", which is the authority for spec/04's "do not add a size". When they
+  // disagree the authored size STAYS: the implied value is a minimum, so dropping a larger authored
+  // target would quietly lose what the design drew.
+  const implied = opts.widgetImpliedSize ?? null;
+  const square = pxW != null && pxW === pxH;
+  const impliedMatch = implied != null && square && pxW === implied;
+  if (implied != null && square && !impliedMatch) {
+    ctx.note(`${n.id}: ${opts.widget} implies a ${implied}dp minimum target but the design authored ${pxW}px; the authored size stays, the implied value is only a minimum`);
+  }
+  if (impliedMatch) {
+    ctx.note(`${n.id}: ${opts.widget} already implies the authored ${implied}dp target (pinned KDoc), so no size is emitted (spec/04)`);
+  } else if (authored.width === 'px' && authored.height === 'px' && square) {
     parts.size.push(`size(${dp(pxW)})`);
   } else {
     if (pxW) parts.size.push(`width(${dp(pxW)})`);
@@ -285,14 +309,22 @@ function emitNode(id, ctx, opts) {
   const ind = '    '.repeat(opts.indent);
   const L = [];
   const cb = ctx.nameFor.get(id) ?? null;
-  const mod = modifierOf(n, ctx, { ...opts, clickable: cb, isText: n.role === 'Text' });
-  const modArg = mod ? mod : 'Modifier';
+  // The modifier is built by the case that EMITS it, with the options that case needs. Building it once
+  // up here looked tidy and was wrong twice over: Card and the two widget roles each build their own
+  // with different options, so modifierOf ran twice for one node -- and every note it emits as a side
+  // effect (a negative margin, a dropped aspectRatio height, an unrepresentable width) landed in the
+  // file TWICE, which the goldens then certified. One emitted modifier, one build, one set of notes.
+  const modOf = (over = {}) => modifierOf(n, ctx, {
+    ...opts, clickable: cb, isText: n.role === 'Text', ...over,
+  });
+  const modArgOf = (over) => { const m = modOf(over); return m || 'Modifier'; };
 
   switch (n.role) {
     case 'Text': {
+      const mod = modOf();
       const typeRole = ctx.typeRoleOf(n);
       const maxLines = ctx.maxLinesOf(n);
-      const ellipsis = (n.notes || []).includes('text-overflow:ellipsis');
+      const ellipsis = n.type?.overflow === 'ellipsis';
       // A color this node declares, or the role it INHERITS. Compose has no CSS inheritance across a
       // background(), so a container that paints a role does not pass its ink down the way the web
       // does -- the hand-written CategoryCover passes `color = content` to exactly this kind of
@@ -310,6 +342,7 @@ function emitNode(id, ctx, opts) {
     }
 
     case 'Icon': {
+      const mod = modOf();
       const name = kotlinIconName(n.icon.name);
       // FILL is the design's own filled/outlined axis, measured off font-variation-settings. A
       // design that never declared one gets Filled and is told so, instead of a coin flip.
@@ -336,9 +369,7 @@ function emitNode(id, ctx, opts) {
       // container, so a background() on top of it paints the same role twice. The hand-written card
       // is the authority -- it passes colors = CardDefaults.cardColors(containerColor = ...) and no
       // background() -- and an extra background() also defeats the shape clipping Card does itself.
-      const cardMod = modifierOf(n, ctx, {
-        ...opts, clickable: cb, isText: false, paddingHandledElsewhere: true, backgroundHandledByColors: true,
-      });
+      const cardMod = modOf({ isText: false, paddingHandledElsewhere: true, backgroundHandledByColors: true });
       L.push(`${ind}Card(`);
       L.push(`${ind}    modifier = ${cardMod || 'Modifier'},`);
       if (shapeExpr(paint.radius)) L.push(`${ind}    shape = ${shapeExpr(paint.radius)},`);
@@ -380,13 +411,56 @@ function emitNode(id, ctx, opts) {
     case 'Row': {
       const gap = typeof n.layout?.gap === 'number' ? n.layout.gap : null;
       L.push(`${ind}Row(`);
-      L.push(`${ind}    modifier = ${modArg},`);
+      L.push(`${ind}    modifier = ${modArgOf()},`);
       if (gap) L.push(`${ind}    horizontalArrangement = Arrangement.spacedBy(${dp(gap)}),`);
       if (/center/.test(String(n.layout?.align || ''))) L.push(`${ind}    verticalAlignment = Alignment.CenterVertically,`);
       L.push(`${ind}) {`);
       // A Row's cross axis is height, and spec/04 trap 5 forbids a captured fixed height, so nothing
       // stretches here; align-items: center becomes verticalAlignment instead.
       for (const c of n.children) L.push(...emitNode(c, ctx, { ...opts, indent: opts.indent + 1, scope: 'Row', isChild: true }));
+      L.push(`${ind}}`);
+      return L;
+    }
+
+    case 'Column': {
+      // spec/02's enum gained Column, so the capture may now name it. Without this case the role would
+      // fall through to the Box default: a valid, plausible, wrong layout, which is the one failure
+      // mode KNOWN_ROLES exists to prevent. Symmetric to Row, with the cross axis read, not assumed.
+      const gap = typeof n.layout?.gap === 'number' ? n.layout.gap : null;
+      L.push(`${ind}Column(`);
+      L.push(`${ind}    modifier = ${modArgOf()},`);
+      if (gap) L.push(`${ind}    verticalArrangement = Arrangement.spacedBy(${dp(gap)}),`);
+      if (/center/.test(String(n.layout?.align || ''))) L.push(`${ind}    horizontalAlignment = Alignment.CenterHorizontally,`);
+      L.push(`${ind}) {`);
+      // A Column's cross axis is width, and CSS align-items defaults to normal == stretch, so children
+      // fill the width unless the design aligned them.
+      for (const c of n.children) {
+        L.push(...emitNode(c, ctx, { ...opts, indent: opts.indent + 1, scope: 'Column', isChild: true, stretchCross: stretchCrossAxis(n) }));
+      }
+      L.push(`${ind}}`);
+      return L;
+    }
+
+    case 'IconToggleButton':
+    case 'IconButton': {
+      // The widget owns the click, so the modifier must NOT also carry clickable(): IconToggleButton
+      // takes checked and onCheckedChange, IconButton takes onClick. Emitting both would compile and
+      // fire the callback twice.
+      const widgetMod = modOf({ clickable: null, isText: false, widgetImpliedSize: 48, widget: n.role });
+      const toggle = n.callback?.stateProp ? camel(n.callback.stateProp) : null;
+      if (n.role === 'IconToggleButton' && !toggle) {
+        ctx.refuse(`${n.id} is an IconToggleButton but carries no callback.stateProp, so there is no boolean to bind to checked`);
+      }
+      L.push(`${ind}${n.role}(`);
+      if (n.role === 'IconToggleButton') {
+        L.push(`${ind}    checked = ${toggle},`);
+        L.push(`${ind}    onCheckedChange = { ${cb}${'()'} },`);
+      } else {
+        L.push(`${ind}    onClick = { ${cb}${'()'} },`);
+      }
+      if (widgetMod) L.push(`${ind}    modifier = ${widgetMod},`);
+      L.push(`${ind}) {`);
+      for (const c of n.children) L.push(...emitNode(c, ctx, { ...opts, indent: opts.indent + 1, scope: 'Box', isChild: true }));
       L.push(`${ind}}`);
       return L;
     }
@@ -401,7 +475,7 @@ function emitNode(id, ctx, opts) {
       // toggle's glyph in the top-left corner while the design centered it.
       const center = centerFrom(n);
       L.push(`${ind}Box(`);
-      L.push(`${ind}    modifier = ${modArg},`);
+      L.push(`${ind}    modifier = ${modArgOf()},`);
       if (center && !stacked) L.push(`${ind}    contentAlignment = Alignment.Center,`);
       L.push(`${ind}) {`);
       for (const c of n.children) {
@@ -523,19 +597,24 @@ fun GeneratedTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composa
 `;
 }
 
-function componentFile({ pkg, typeName, params, cbParams, rootId, ctx, ir }) {
+function componentFile({ pkg, typeName, params, boolParams, cbParams, rootId, ctx, ir }) {
   // emitNode returns lines (composition is concatenation, never re-indenting); the import scan
   // needs the body as one text, so it is joined once here at the boundary.
   const bodyLines = emitNode(rootId, ctx, { indent: 1, isFrameRoot: true, scope: null });
   const body = bodyLines.join('\n');
   const imports = collectImports(body);
+  // Position authority is the hand-written card this one is compared against: (podcast, subscribed,
+  // onSubscribeClick, modifier). A toggle's boolean sits with the data it reflects, not with the
+  // callbacks, and `checked = subscribed` has to have a parameter to name or the file will not compile.
   const sig = [
     ...params.map((p) => `    ${p.name}: ${p.kotlinType},`),
+    ...boolParams.map((p) => `    ${p.name}: ${p.kotlinType},`),
     ...cbParams.map((p) => `    ${p.name}: ${p.kotlinType},`),
     '    modifier: Modifier = Modifier,',
   ];
   const previewArgs = [
     ...params.map((p) => `${p.name} = FakeData.${pascal(p.name)}`),
+    ...boolParams.map((p) => `${p.name} = FakeData.${pascal(p.name)}`),
     ...cbParams.map((p) => `${p.name} = {}`),
   ];
   const stateTodos = ctx.stateTodos;
@@ -564,7 +643,7 @@ ${stateTodos.length ? `\n// TODO(state) markers above: the design paints ${state
 // The design's own sample values, from the data-props schema defaults (spec/04: FakeData, not
 // inline, so the next agent deletes them in one move).
 private object FakeData {
-${params.map((p) => `    const val ${pascal(p.name)} = ${JSON.stringify(p.sample ?? '')}`).join('\n')}
+${[...params, ...boolParams].map((p) => `    const val ${pascal(p.name)} = ${p.kotlinType === 'Boolean' ? String(p.sample) : JSON.stringify(p.sample ?? '')}`).join('\n')}
 }
 
 @Preview
@@ -592,6 +671,10 @@ function collectImports(body) {
   add(/\bBox\(/, 'androidx.compose.foundation.layout.Box');
   add(/\bText\(/, 'androidx.compose.material3.Text');
   add(/\bIcon\(/, 'androidx.compose.material3.Icon');
+  // The hand-written card imports androidx.compose.material3.IconToggleButton for exactly this widget;
+  // IconButton is the sibling the capture can now name too.
+  add(/\bIconToggleButton\(/, 'androidx.compose.material3.IconToggleButton');
+  add(/\bIconButton\(/, 'androidx.compose.material3.IconButton');
   add(/Icons\.Filled\./, 'androidx.compose.material.icons.Icons');
   add(/Icons\.Outlined\./, 'androidx.compose.material.icons.Icons');
   add(/\bArrangement\./, 'androidx.compose.foundation.layout.Arrangement');
@@ -649,23 +732,26 @@ export function emitCompose(ir, tokens, opts = {}) {
   const rootId = Object.keys(nodes).find((id) => nodes[id].component === want);
   if (!rootId) return { files: {}, refusals: [`no node carries data-component="${want}"`], errorDiagnostics: [], notes };
 
-  const typeOf = (n) => (n.notes || []).find((x) => x.startsWith('type-role:'));
   const ctx = {
     nodes, nameFor: new Map(), notes, refusals, stateTodos: [],
     note: (m) => notes.push(m),
     refuse: (m) => { if (!refusals.includes(m)) refusals.push(m); },
+    // spec/02 Node.type is a field now. It used to ride in `notes` as a structured string, and the two
+    // readers here were the only thing that made it reach the output: a capture could write node.type
+    // while this file kept parsing a note that no longer existed, and the emitted Text would carry no
+    // style, no maxLines and no overflow -- valid Kotlin, quietly wrong, and the goldens would have
+    // blessed it. Read the field; refuse a role that cannot name a typography property.
     typeRoleOf: (n) => {
-      const t = typeOf(n);
+      const t = n.type;
       if (!t) return null;
-      const role = /type-role:([A-Za-z]+)(?: \((\w+)\))?/.exec(t);
-      if (!role) return null;
-      if (role[2] === 'closest') ctx.note(`${n.id}: type role ${role[1]} is the closest match, not a scale hit; spec/03 wants an explicit copy() here`);
-      return role[1];
+      if (!/^[A-Za-z][A-Za-z0-9]*$/.test(String(t.role))) {
+        ctx.refuse(`${n.id}: node.type.role "${t.role}" cannot name a typography property; refusing to emit a style reference it cannot resolve`);
+        return null;
+      }
+      if (t.source === 'closest') ctx.note(`${n.id}: type role ${t.role} is the closest match, not a scale hit; spec/03 wants an explicit copy() here`);
+      return t.role;
     },
-    maxLinesOf: (n) => {
-      const m = (n.notes || []).find((x) => x.startsWith('max-lines:'));
-      return m ? Number(m.split(':')[1]) : null;
-    },
+    maxLinesOf: (n) => n.type?.lineClamp ?? null,
     // The role an ANCESTOR declared, carried by the capture as a note. Compose has no CSS color
     // inheritance across a background(), so the hand-written CategoryCover passes `color = content`
     // to exactly this kind of label; dropping it would draw the badge in the wrong role and still
@@ -710,7 +796,11 @@ export function emitCompose(ir, tokens, opts = {}) {
       const parent = Object.values(nodes).find((p) => (p.children || []).includes(id));
       if (!parent || parent.role !== 'Row') ctx.refuse(`node ${id} has flex-grow but its surviving parent is ${parent ? parent.role : 'nothing'}; spec/04 trap 6: weight would silently stop applying`);
     }
-    if (n.control_state) ctx.stateTodos.push(`${id}: ${n.control_state.state}=${n.control_state.ariaPressed}`);
+    // A toggle whose boolean the design declared is a parameter, not a TODO. The state a capture
+    // cannot infer is the one that has no prop behind it (hover, focus), and those are the notes below.
+    if (n.callback?.state && n.callback.stateProp) {
+      ctx.note(`${id}: ${n.callback.state} driven by boolean "${n.callback.stateProp}" becomes a checked parameter (spec/02)`);
+    }
     // spec/04 trap 1: a background inside a rounded ancestor that carries no shape of its own.
     if (n.paint?.background && !n.paint?.radius) {
       const ancestor = Object.values(nodes).find((p) => (p.children || []).includes(id) && p.paint?.radius);
@@ -764,10 +854,29 @@ export function emitCompose(ir, tokens, opts = {}) {
   })(rootId);
   const cbParams = clickables.map((id) => ({ name: ctx.nameFor.get(id), kotlinType: '() -> Unit' }));
 
+  // A toggle's boolean is a parameter of the component (spec/02), and its default is the schema's OWN
+  // default -- the one value the preview can show without this tool resolving anything. A stateProp the
+  // schema does not declare cannot reach here (the capture leaves stateProp null in that case), but it
+  // is refused rather than assumed, because the alternative is emitting `checked =` with no parameter.
+  const boolDefaults = new Map((cb.boolProps ?? []).map((b) => [b.name, b.default]));
+  const boolParams = [];
+  (function collectBools(id) {
+    const n = nodes[id];
+    const prop = n.callback?.stateProp;
+    if (prop && !boolParams.some((b) => b.name === camel(prop))) {
+      if (!boolDefaults.has(prop)) {
+        ctx.refuse(`${n.id}: toggle boolean "${prop}" is not declared in the data-props schema, so it has no default to emit`);
+      } else {
+        boolParams.push({ name: camel(prop), kotlinType: 'Boolean', sample: boolDefaults.get(prop) });
+      }
+    }
+    (n.children || []).forEach(collectBools);
+  })(rootId);
+
   const files = {
     'Color.kt': colorFile(pkg, tokens),
     'Theme.kt': themeFile(pkg, base, tokens),
-    [`${typeName}.kt`]: componentFile({ pkg, typeName, params, cbParams, rootId, ctx, ir }),
+    [`${typeName}.kt`]: componentFile({ pkg, typeName, params, boolParams, cbParams, rootId, ctx, ir }),
   };
   return { files, refusals, errorDiagnostics: ir.diagnostics.filter((d) => d.severity === 'error'), notes, typeName, pkg };
 }
