@@ -12,6 +12,7 @@
     "prompt": "node tools/prompt.mjs",
     "validate": "node tools/validate.mjs",
     "capture": "node tools/capture.mjs",
+    "emit": "node tools/emit-compose.mjs",
     "properties": "node tools/property-map.mjs",
     "repair": "node tools/property-map.mjs --repair",
     "test": "node --test 'tests/*.test.mjs'"

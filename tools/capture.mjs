@@ -114,6 +114,20 @@ const readSpec = (name) => readFileSync(join(HERE, 'spec', name), 'utf8');
 function pageDump(a) {
   const { frameId, contractList, carrierClass } = a;
   const CONTRACT = new Set(contractList);
+  // The declared SIZE and its unit, because the unit is the meaning: `width: 100%` is a responsive
+  // fill and `width: 40px` is a size the design authored. Both compute to pixels, and an emitter
+  // that cannot tell them apart welds a percentage into a fixed dp (spec/04 trap 5).
+  const declaredSizes = (styleAttr) => {
+    const kind = (prop) => {
+      const m = new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)').exec(styleAttr);
+      if (!m) return null;
+      const v = m[1].trim().toLowerCase();
+      if (/\d(%|vw|vh|em|rem|ch)$/.test(v)) return 'relative';
+      if (/^\d+(\.\d+)?px$/.test(v)) return 'px';
+      return v;
+    };
+    return { width: kind('width'), height: kind('height'), minWidth: kind('min-width'), minHeight: kind('min-height') };
+  };
   const RUNTIME_ATTR = /^data-(dc|sc)-/;
   const frame = document.getElementById(frameId);
   if (!frame) return { error: 'frame-missing' };
@@ -130,6 +144,11 @@ function pageDump(a) {
       contract,
       runtime: [...el.attributes].filter((a) => RUNTIME_ATTR.test(a.name)).map((a) => a.name),
       carrier: el.classList.contains(carrierClass),
+      // Which sizes THIS element declares, as opposed to what layout handed it. Same discipline as
+      // color and cursor: a computed width of 152px on a text div is what the flex parent gave it,
+      // not a value the design authored, and welding it into Modifier.width is exactly spec/04
+      // trap 5's desktop-resize bug.
+      authored: declaredSizes(el.getAttribute('style') || ''),
       ownText: [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').replace(/\s+/g, ' ').trim(),
       attrNames: [...el.attributes].map((a) => a.name),
       styleAttr: el.getAttribute('style') || '',
@@ -147,6 +166,10 @@ function pageDump(a) {
       style: {
         display: cs.display, flexDirection: cs.flexDirection, justifyContent: cs.justifyContent,
         alignItems: cs.alignItems, flexWrap: cs.flexWrap, flex: cs.flex,
+        // justify-items/align-items are the GRID centering axis (place-items is their shorthand).
+        // Without them a one-cell grid that centers its content reads as uncentered, because
+        // justifyContent is a flex property and computes differently on a grid.
+        justifyItems: cs.justifyItems,
         rowGap: cs.rowGap, columnGap: cs.columnGap, gridArea: cs.gridArea, placeSelf: cs.placeSelf,
         padT: cs.paddingTop, padR: cs.paddingRight, padB: cs.paddingBottom, padL: cs.paddingLeft,
         marT: cs.marginTop, marR: cs.marginRight, marB: cs.marginBottom, marL: cs.marginLeft,
@@ -162,6 +185,8 @@ function pageDump(a) {
         fontSize: cs.fontSize, lineHeight: cs.lineHeight, fontWeight: cs.fontWeight,
         letterSpacing: cs.letterSpacing, fontFamily: cs.fontFamily,
         boxShadow: cs.boxShadow, cursor: cs.cursor,
+        // The FILL axis of a Material Symbols glyph is the design's own filled/outlined choice.
+        variation: cs.fontVariationSettings,
       },
     });
     for (let i = 0; i < el.children.length; i += 1) walk(el.children[i], `${path}.${i}`, depth + 1);
@@ -198,6 +223,12 @@ const isTransparent = (v) => {
   return parts.length > 3 && parseFloat(parts[3]) === 0;
 };
 const uniform = (vs) => vs.every((v) => v !== null && v === vs[0]);
+// "'FILL' 1" / "FILL 0" / "normal". null when the axis was never declared: the emitter then says
+// the style is unknown instead of picking one.
+const fillAxis = (variation) => {
+  const m = /['"]?FILL['"]?\s+([01](?:\.0+)?)/i.exec(String(variation || ''));
+  return m ? Number(m[1]) : null;
+};
 const roleNamedBy = (styleAttr) => {
   const m = /--md-sys-color-([a-z0-9-]+)/.exec(String(styleAttr || ''));
   return m ? m[1].replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase()) : null;
@@ -472,7 +503,7 @@ function emitNode(id, d, childIds, ownText, ctx) {
     paint: paintOf(d, { schemes, push, id, notes, namedBg, namedFg }),
     // An icon's glyph string is not copy (measured: it renders the literal "terminal").
     text: icon ? null : ownText,
-    icon: icon ? { name: icon, source: glyphFont ? 'glyph-font' : 'markup' } : null,
+    icon: icon ? { name: icon, source: glyphFont ? 'glyph-font' : 'markup', fill: fillAxis(s.variation) } : null,
     prop: c['data-prop'] ?? null,
     children: childIds,
     notes,
@@ -561,13 +592,15 @@ function pickRole(id, d, ctx) {
 function layoutOf(d) {
   const s = d.style;
   const flexy = /^flex/.test(s.display);
+  const gridy = /^grid/.test(s.display);
   const r = pxOr(s.rowGap, null);
   const col = pxOr(s.columnGap, null);
   const out = {
     display: s.display,
     direction: flexy ? s.flexDirection : null,
-    justify: flexy ? s.justifyContent : null,
-    align: flexy ? s.alignItems : null,
+    // On a grid the child alignment is justify-items/align-items, not justify-content.
+    justify: flexy ? s.justifyContent : (gridy ? s.justifyItems : null),
+    align: flexy || gridy ? s.alignItems : null,
     gap: r === col ? r : { row: r, column: col },
     padding: { top: px(s.padT), right: px(s.padR), bottom: px(s.padB), left: px(s.padL) },
     margin: { top: px(s.marT), right: px(s.marR), bottom: px(s.marB), left: px(s.marL) },
@@ -583,6 +616,9 @@ function layoutOf(d) {
 function sizeOf(d, notes) {
   const s = d.style;
   const out = { width: px(s.width), height: px(s.height), minW: pxOr(s.minW, null), minH: pxOr(s.minH, null), aspect: null };
+  // Carried through so an emitter can tell an authored box from a laid-out one, and a percentage
+  // fill from a fixed size.
+  out.authored = Object.assign({ width: null, height: null, minWidth: null, minHeight: null }, d.authored || {});
   const a = String(s.aspect || '');
   if (a && a !== 'auto') {
     const [w, h] = a.split(/\s*\/\s*/).map(Number);
@@ -651,7 +687,15 @@ function paintOf(d, ctx) {
       out.foreground = res;
       notes.push(...extra);
     } else {
-      notes.push(`foreground-inherited:${s.color} (not declared on this element; spec/04 LocalContentColor)`);
+      // The value is inherited, so it is not this node's paint. It is still the color the design
+      // intends the node to draw with, resolved to a role here so an emitter can pass it explicitly
+      // where the target has no automatic equivalent. spec/04: rely on LocalContentColor inside a
+      // container that already sets it -- which a CSS ancestor does and a Compose background() does
+      // NOT, so the resolution has to survive to the emitter rather than be dropped.
+      const r = roleForColor(s.color, schemes);
+      notes.push(r.role
+        ? `foreground-inherited:${r.role} (${r.hex}; declared by an ancestor)`
+        : `foreground-inherited:unresolved (${s.color})`);
     }
   }
 
@@ -740,7 +784,7 @@ export async function captureFrame({
       if (b.width <= 0 || b.height <= 0 || el.childElementCount <= 0) return false;
       return !/\{\{[^}]{1,40}\}\}/.test(document.body.innerHTML);
     }, frame, { timeout: settleTimeoutMs }).then(() => true).catch(() => false);
-    const fontsReady = await page.evaluate(() => document.fonts.ready.then(() => document.fonts.status)).catch(() => 'unknown');
+    const fontsBefore = await page.evaluate(() => document.fonts.ready.then(() => document.fonts.status)).catch(() => 'unknown');
     const dump = await page.evaluate(pageDump, { frameId: frame, contractList: CONTRACT_ATTRS, carrierClass: INTERP_CLASS });
     const unresolved = dump && !dump.error ? dump.unresolvedCount : 0;
     await ctx.close();
@@ -753,8 +797,17 @@ export async function captureFrame({
     if (blocked.length) refusals.push(`${blocked.length} blocked request(s): ${blocked.join(', ')} -- not pinned in .vendor/vendor-lock.json`);
     if (unresolved > 0) refusals.push(`${unresolved} unresolved {{ }} placeholder(s): the read would describe a template, not a design`);
     if (errors.length) refusals.push(`${errors.length} page error(s): ${errors.slice(0, 3).join(' | ')}`);
-    if (dump && !dump.error && String(dump.fontsReady) !== String(fontsReady)) refusals.push('font status changed between passes; the two reads measured different fonts');
-    if (refusals.length) return refuse(refusals, { fontsReady });
+    // The invariant is "the styles were read with the fonts settled", which is a property of the one
+    // read, not of two reads agreeing. An earlier version compared this status with the status read
+    // just before the dump, and refused a good capture about a fifth of the time: a late font face
+    // (the icon font starts loading after document.fonts.ready resolves) moved one reading, so the
+    // two disagreed while the styles themselves had been measured perfectly. pageDump samples the
+    // status in the same synchronous pass as every computed style, so what it reports is the state
+    // the measurement was actually taken in.
+    if (dump && !dump.error && dump.fontsReady !== 'loaded') {
+      refusals.push(`fonts were not settled when the styles were read: document.fonts.status = "${dump.fontsReady}" (before the dump: "${fontsBefore}") -- a measured style could come from a fallback font`);
+    }
+    if (refusals.length) return refuse(refusals, { fontsAtDump: dump && !dump.error ? dump.fontsReady : null, fontsBefore });
 
     const schemes = readRoleMap(readFileSync(tokenFile, 'utf8'));
     const out = buildIr(dump, {

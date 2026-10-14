@@ -71,6 +71,7 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | tools/probe.mjs | what a real export actually is, re-measured: `node tools/vendor.mjs` once, then `node tools/probe.mjs` |
 | tools/browser.mjs | the shared frame-materialization transport: vendor router, offline guarantee, settle gate. Importable; `probe.mjs` is a thin caller so a second tool cannot re-implement the offline promise |
 | tools/capture.mjs | one materialized frame to the spec/02 Node tree, in memory: `node tools/capture.mjs --json` |
+| tools/emit-compose.mjs | the IR to `Color.kt`, `Theme.kt` and one composable, in its own `ui.generated` package: `node tools/emit-compose.mjs --write <commonMain>/kotlin` |
 | tools/resolve.mjs | the pure value resolvers (color to role, type, shape, elevation); ladders parsed from spec/03 at load: `node tools/resolve.mjs --selftest` |
 | tools/serve.mjs | loopback static server for an export, path-confined to one directory |
 | tools/validate.mjs | the contract table as executable checks: `npm run validate -- fixtures/reference` |
@@ -81,7 +82,7 @@ otherwise be a guess, and the contract is cheap because it also improves the des
 | rules/contract-rules.json | the normative contract table: prompt and validator read the same rows |
 | rules/property-ownership.json | which mapping spec owns each CSS property, and the severity of each unknown |
 | rules/target-blocks.json | target prompt text as data, with the topic cross-check the assembler runs |
-| tests/golden/ | the assembled prompts, byte for byte; `npm test` compares, `--update` rewrites |
+| tests/golden/ | the assembled prompts and the emitted Kotlin, byte for byte; `npm test` compares, `--update` rewrites |
 | baselines/reference.json | per-code validator counts on the reference export, so a check cannot silently change |
 | docs/lessons.md | the spec/10 log: one line per lesson, each pointing at a check or a fixture |
 | docs/probe-report.md | generated answers: transport, frame isolation, determinism, missing contract attributes |
@@ -116,6 +117,11 @@ Verified numbers, not from memory: type scale, shape ladder, elevation ladder an
 opacities were read out of material3 1.12.0-alpha03 sources. Re-verify against whatever version is
 pinned when the emitter is built, and treat a mismatch as a bug in the emitter, not as a design
 issue.
+
+That re-verification happened, and it found two premises in spec/04 that the pinned library
+disagrees with: `CardDefaults.cardElevation` takes no `tonalElevation`, and `Shapes` takes no `full`.
+Both were caught by the compiler rather than by reading, which is the cheaper way to be wrong. The
+emitter writes what the pinned API declares and says so in the file.
 
 
 ## Status
