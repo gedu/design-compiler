@@ -1,7 +1,8 @@
 # Handoff for the agent picking this up
 
 You are building **design-compiler** in this repository. The spec is written, the input side of the
-tool exists, and the emitters do not. The human is running a Kotlin workshop elsewhere and is not available for open-ended
+tool exists, and the first emitter exists too: capture to the IR, IR to compiling Compose. The other
+three targets are still unwritten. The human is running a Kotlin workshop elsewhere and is not available for open-ended
 questions; ask one focused question only when a real product decision is blocking, otherwise follow
 the spec and record the assumption.
 
@@ -72,8 +73,24 @@ Two consequences that outrank everything below:
 
 ## Start here
 
-Status as of 2026-10-13: **T0, T1, T2, T2.5, T3 and T3.1 are done.** The input side is built; no
-emitter is. \`npm test\` is 92 tests.
+Status as of 2026-10-14: **T0, T1, T2, T2.5, T3, T3.1 are done, and T5 has its answer written down.**
+The input side is built, and the first emitter exists: \`tools/capture.mjs\` (frame to the spec/02 tree)
+and \`tools/emit-compose.mjs\` (that tree to \`Color.kt\`, \`Theme.kt\` and one composable, in a
+\`ui.generated\` package). \`npm test\` is 196 tests.
+
+T5's decision is recorded in \`odd/tasks/design-compiler.md\`: **grow it into T6, do not throw it
+away**, with two named debts. Debt 1 blocks T6 and needs a human call: spec/02 has no field for a
+resolved type role and its role enum cannot name Column or IconButton, so the schema must be amended
+before an IR file is written to disk. Debt 2 is mechanical: the emitter reads an in-memory tree, and
+T6's contract is an IR on disk, so the seam to extract is \`emitCompose(ir, tokens, opts)\`, which
+already takes the IR as a parameter.
+
+**One half of T5 is still open and is not pretending to be closed.** Its acceptance says "compiles
+*and* looks like the frame". It compiles: \`:shared:compileKotlinJvm\` exit 0, 5 class files under
+\`ui/generated\`, measured against a green baseline. Nobody has seen it render. Every render host needs
+a file written into the workshop repo, which carries the human's uncommitted WIP, so this spike did not
+write one. \`emulator-5554\` is attached on this machine, so the check is one approved preview host away,
+not a build away. Say so before calling T5 finished.
 
 - **T2** added \`node tools/validate.mjs <dir> --json\` (\`npm run validate\`): 24 static checks, 6
   reported \`unimplemented\`, exit codes 0/1/2/3/4 where **4 means the input itself is unreadable or
@@ -89,9 +106,11 @@ emitter is. \`npm test\` is 92 tests.
 - \`docs/lessons.md\` is the spec/10 log. Read it before touching \`varying-text-marked-as-prop\` or
   \`prop-undeclared\`: they measure different claims, and that discrepancy is deliberately left open.
 
-**Next is T5**, the Compose spike, which needs an answer written down before T6 may start. **T4** is
-the human round trip that retires unknown 1 and is the only task waiting on a person. T6 is unblocked
-by T2.5 and still blocked by T5. See \`odd/tasks/design-compiler.md\` for the state of each.
+**Next is T6**, unblocked by T2.5 and by T5's written answer except for its schema debt above, which
+is a decision and not a task. **T4** is the human round trip that retires unknown 1 and is the only
+task waiting on a person. Read the T5 block in \`odd/tasks/design-compiler.md\` before T6: it names the
+two API premises the pinned library refuted, and spec/04 has already been corrected to match the
+artifact rather than the memory.
 
 Playwright is now a repo devDependency (1.64); no browser download is needed because the cached
 chromium-1243 is located by search and overridable with \`CHROME=\`. A machine without that cache needs
@@ -100,8 +119,16 @@ chromium-1243 is located by search and overridable with \`CHROME=\`. A machine w
 Environment already available on this machine: Node 24, \`npx\`, Playwright with Chromium installed
 (\`~/Library/Caches/ms-playwright\`). The workshop project is at
 \`~/Documents/CK/internals/kotlin-workshop-lab\`, Kotlin 2.4.20, Compose Multiplatform 1.12.1,
-material3 1.12.0-alpha03, and \`./gradlew :shared:allTests\` plus \`:shared:compileKotlinJvm\` work. There
-is no Kotlin CLI on the PATH, so compile through Gradle.
+material3 1.12.0-alpha03, and \`:shared:allTests\` plus \`:shared:compileKotlinJvm\` work. There is no
+Kotlin CLI on the PATH, so compile through Gradle, and the wrapper is in \`app/\`, not at the repo root:
+\`./app/gradlew -p app :shared:compileKotlinJvm\` from the workshop root, or \`cd app && ./gradlew
+:shared:compileKotlinJvm\`. Measured both ways, exit 0.
+
+Two rules about that repo, which is not yours. It carries the human's uncommitted work (\`docs/\`,
+\`guide/\`, \`odd/\`, \`tools/\`), so commit nothing there: emitted files stay additive and untracked.
+And emit only into \`ui.generated\`. \`ui.theme\` and \`ui.components\` already declare a \`Color\`, a
+\`Theme\` and a \`PodcastCard\` by hand, and a second top-level declaration is a redeclaration error
+that looks like a mystery until you notice which package you wrote into.
 
 ## Rules of engagement
 
@@ -154,7 +181,10 @@ is no Kotlin CLI on the PATH, so compile through Gradle.
 - Compose Multiplatform is the primary target; RN second; web third and skippable if no component
   library is in play.
 - Elevation is declared with \`data-elevation\`, never inferred from \`box-shadow\`. M3 elevation is tonal
-  and CSS shadows are black; no formula maps them honestly.
+  and CSS shadows are black; no formula maps them honestly. Measured limit on that wording, so it is not
+  relitigated, just bounded: \`Card\` in the pinned material3 exposes no tonal parameter at all, so a
+  declared level reaches a Card as \`defaultElevation\`. The decision (declare it, never read a shadow)
+  is untouched and is the part that matters.
 - Two \`ColorScheme\` objects, not one with modes. No Android \`Context\` and no dynamic color call in
   \`commonMain\`; dynamic color stays Android-only behind an \`expect\`/\`actual\`.
 - Figma goes through the plugin import (spec/11 Route A). The Figma API emitter stays unbuilt until a

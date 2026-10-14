@@ -388,6 +388,9 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     detection rule or a non-goal in the same commit. This task is what unknown 1 is waiting on.
 
 - [ ] T5 Spike: one materialized frame to one compiling Compose file
+  - Status 2026-10-14: **answered in writing, one half open.** Compiles: yes, measured. Looks like the
+    frame: never observed, and closing it needs a render host in the workshop repo, which is the human's
+    to approve. The spike/grow decision below is the deliverable this task existed to produce.
   - Blocked by: T0, T2
   - Seams: golden fixture, `./app/gradlew :shared:compileKotlinJvm`
   - Unknown 2, answered without waiting for T4: take the hand-annotated `PodcastCard` fixture, read
@@ -435,10 +438,91 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     the Node-tree-to-Kotlin link, which is WU5. It also surfaced a schema gap that T6 cannot inherit
     silently (spec/02 has no field for a resolved type role, and its enum cannot name half of
     spec/04's components) -- recorded as an open discrepancy in `docs/lessons.md` with T6 as owner.
+  - **WU5 feat(emit) `af61df4`** -- `tools/emit-compose.mjs` + `tests/emit-compose.test.mjs` (24 tests;
+    `npm test` 196/196) + the three emitted files as goldens. `Color.kt` (34 roles x 2 schemes, copied
+    role-for-role and hex-for-hex out of tokens.json), `Theme.kt` (both schemes plus the shape steps),
+    and one composable, all inside their own `ui.generated` package, written only where an ownership
+    marker says this tool already owns the file. `npm run emit`, `--write <commonMain>/kotlin`, exit 0
+    emitted / 1 error diagnostic / 3 refused.
+  - **The oracle, and why its reds are attributable.** The workshop's
+    `./app/gradlew -p app :shared:compileKotlinJvm` was measured GREEN (exit 0) before any emitted file
+    existed, on a tree with the human's own uncommitted WIP left untouched. Emitted files are additive
+    and untracked there, in `ui.generated` only, never in `ui.components` or `ui.theme` where a second
+    top-level declaration would be a redeclaration error. Final state: exit 0, `compileKotlinJvm`
+    executed not cached, 5 `.class` files under `ui/generated`, and zero imports in the emitted files
+    that their own body does not use.
+  - **Three defects the compiler found that reading did not.** (a) `CardDefaults.cardElevation` has no
+    `tonalElevation` in material3 1.12.0-alpha03 -- `NAMED_PARAMETER_NOT_FOUND` -- it declares
+    default/pressed/focused/hovered/dragged/disabled and `CardElevation` exposes only shadowElevation;
+    `tonalElevation` lives on `Surface`, which `Card` does not forward. spec/04's mapping row and its
+    trap 4 now say what the pinned artifact says, and the emitted file says the trap wanted tonal.
+    (b) `Shapes` has no `full` parameter at all -- its own source: "Shapes None and Full are omitted as
+    None is a RectangleShape and Full is a CircleShape" -- so a circle is `CircleShape` at the use site.
+    That premise was the emitter's own invention, not spec/03's, which had already written "plus
+    `CircleShape`" and was right. (c) `androidx.compose.ui.unit.dp` stopped being imported into Theme.kt
+    the moment the `.replace()` hack that injected it was deleted, and the shape argument list gained a
+    `,,` because each line already carries its own comma.
+  - **Two more, found by reading the hand-written card rather than the compiler.** A `Card` was painting
+    its container twice -- `background()` in the modifier on top of `colors = CardDefaults.cardColors(...)`
+    -- where the hand-written card passes `colors=` alone; the second paint also fights the clipping
+    Card does itself. And centering was keyed on `display: grid`, so the toggle's flex box (whose
+    justify-content and align-items both compute to center) lost its centering and its glyph sat in a
+    corner; centering is now read from the node's own justify/align. Separately, the 40px circle declares
+    `corner-full` but the captured state paints `background: none`, so nothing is emitted to round it and
+    the file names the shape as belonging to a hover/selected state -- a TODO, not a CircleShape welded
+    onto an unpainted Box.
+  - **A flake WU5 removed from WU4b's own gate.** The font gate compared `document.fonts.status` read
+    before the DOM dump with the status read after it, and refused a perfectly good capture about 1 run
+    in 5 (reproduced: 2 of 5 under the runner, 1 of 8 standalone): the icon font starts loading after
+    `document.fonts.ready` resolves, so one reading moved while the styles themselves had been measured
+    correctly. The invariant was never "two readings agree"; it is "the styles were read with the fonts
+    settled", which `pageDump` now samples in the same synchronous pass as every computed style. 0 in 8
+    after the change, `tests/capture.test.mjs` 32/32 green.
+  - **The test-side failure worth keeping louder than the fixes.** The first draft of
+    `tests/emit-compose.test.mjs` showed 16 reds and most were the tests, not the emitter. The helper
+    passed `changed: true` unconditionally instead of checking the mutation had applied, so every
+    "refusal" it proved had been emitted from UNMUTATED input; `--out` was ignored, so a test run wrote
+    into the repo's own `out/`; the icon-import assertion expected lowercase members where the
+    hand-written card imports `filled.Terminal`; the preview assertion expected `MaterialTheme {` where
+    the file writes `GeneratedTheme {`; and the package directory was read from a hardcoded path, so any
+    other `--base` looked like "nothing was written". Second occurrence of the same rule: a test asserts
+    against an authority outside the code under test, and a test helper must never assert its own
+    precondition.
+  - **What WU5 proved, and what it did not.** Proved: the Node-tree-to-Kotlin link is mechanical on a
+    real captured frame -- 11 nodes to 3 files, every color a role reference, the three type roles
+    (`titleSmall`/`bodySmall`/`labelMedium`) checked against tokens.json, sizes emitted from the declared
+    unit and never from a computed box (no 160.dp welded anywhere, `fillMaxWidth()` for `width:100%`,
+    `size(40.dp)` for an authored px), the icon set chosen by the measured FILL axis, no state or
+    navigation in the code, byte-identical across processes, and it compiles. Did NOT prove: **that it
+    looks like the frame.** That half of T5's acceptance needs a render host, and every host available
+    (an Activity in `androidApp`, the desktop `run` task, an IDE preview) means writing into the workshop
+    repo, which carries the human's uncommitted WIP and is not this spike's to modify. An emulator
+    (`emulator-5554`) is attached on this machine, so the check is one approved preview host away, not
+    a build away. It is left open deliberately rather than closed by a screenshot of something else.
+  - **Decision, as T5 requires: grow it, do not throw it away.** Three parts are inheritable as they
+    stand and re-deriving them would only re-pay the traps: `tools/browser.mjs`'s offline materializer,
+    `tools/capture.mjs` (32 tests, the reduction and inheritance rules it had to learn), and
+    `emit-compose.mjs`'s single `modifierOf` ordering function with the trap it encodes. Two debts must
+    be paid before this becomes T6 rather than a spike that kept working by luck. Debt 1 is the spec/02
+    schema gap: type roles currently ride in `notes` as strings and the role enum cannot name
+    Column/IconButton, so T6 must amend spec/02 before an IR file is written to disk. Debt 2 is coupling:
+    the emitter calls `captureFrame` and reads an in-memory tree, while T6's contract is an IR on disk --
+    so the seam to extract is `emitCompose(ir, tokens, opts)`, which already takes the IR as a parameter
+    and is the only reason this is a grow rather than a rewrite. The spike's one-off parts are named and
+    stay one-off: the hand-annotated fixture, `--write` placement into a package the human chose, and
+    the `// TODO` block that lists the decisions a human still owes.
 
 - [ ] T6 Extraction to a real IR on disk
   - Blocked by: T5 (T2.5 is done: `spec/13-bridge.md` defines what extraction may assume, and
     `tools/css-harvest.mjs` is the reader it must reuse rather than rewrite)
+  - **Schema debt carried from T5, and it needs a human decision before the first IR file is written:**
+    spec/02's Node has no field for a resolved type role (the spike rides it in `notes` as a string), and
+    its role enum lists Row but not Column, and not IconButton/Badge/List/Grid -- all of which spec/04's
+    component table keys on. Either amend spec/02 or narrow spec/04. `callback` is already the one field
+    the spike emits that spec/02 does not define, pinned at exactly one by test so it cannot drift.
+  - **Mechanical debt, not a decision:** extract the emitter's seam. `emitCompose(ir, tokens, opts)`
+    already takes the IR as a parameter, so pointing it at an IR on disk instead of calling
+    `captureFrame` itself is the whole change.
   - Seams: `ir` command, golden IR fixtures
   - Capture, reduce, resolve, detect per spec/03, emitting the spec/02 JSON. Type and shape ladders
     verified against the pinned material3 in the Gradle cache, reverse color lookup with tolerance,
@@ -526,6 +610,10 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
 
 - T0 and T5 retire the two unknowns; T4 retires the one that needs a human. Do not start T6 before
   T5 has an answer in writing.
+- T5 has its answer in writing as of 2026-10-14 (grow, not throw away), and T6's blocker is now its own
+  schema debt above rather than T5. What T5 did NOT retire is the visual half of its own acceptance: the
+  emitted card has compiled and has never been rendered. Anyone who runs it and finds the geometry wrong
+  should treat that as a new measurement, not as a surprise.
 - The highest-value artifact in this repository is the golden suite, not the CLI.
 - The two seductive failures: prose rules instead of checks, and letting a model resolve a mapping
   because writing the table is slower. Both destroy reproducibility, the one property worth

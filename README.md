@@ -118,18 +118,24 @@ opacities were read out of material3 1.12.0-alpha03 sources. Re-verify against w
 pinned when the emitter is built, and treat a mismatch as a bug in the emitter, not as a design
 issue.
 
-That re-verification happened, and it found two premises in spec/04 that the pinned library
-disagrees with: `CardDefaults.cardElevation` takes no `tonalElevation`, and `Shapes` takes no `full`.
-Both were caught by the compiler rather than by reading, which is the cheaper way to be wrong. The
-emitter writes what the pinned API declares and says so in the file.
+That re-verification happened, and it found two API premises that the pinned library disagrees with.
+One was spec/04's: `CardDefaults.cardElevation` takes no `tonalElevation`. One was the emitter's own:
+`Shapes` takes no `full`, so a circle is `CircleShape` at the use site. Both were caught by
+the compiler rather than by reading, which is the cheaper way to be wrong. The emitter writes what
+the pinned API declares and says so in the file.
 
 
 ## Status
 
-Tools exist; emitters do not. T0, T1, T2, T2.5, T3 and T3.1 are done, which is the input side: know
-what an export is, make the contract executable, make the prompt, and own the layer in between. The
-next unknown is whether computed style alone emits code that looks like the design (T5, no human
-needed), and the one blocking a human is T4, the round trip that proves the prompt.
+T0, T1, T2, T2.5, T3 and T3.1 are done: the input side. Know what an export is, make the contract
+executable, make the prompt, own the layer in between. T5 has its answer in writing, and the first
+emitter exists: `tools/capture.mjs` reads one materialized frame into the spec/02 tree and
+`tools/emit-compose.mjs` writes that tree as `Color.kt`, `Theme.kt` and one composable that compile.
+
+Half of T5's acceptance stays open on purpose. "Compiles" is measured green; "looks like the frame" has
+never been seen, because every render host means writing into the workshop repo and that repo carries
+the human's uncommitted work. T4 is the other task waiting on a person: the round trip that proves the
+prompt.
 
 The input format was written down before an export existed. One arrived on 2026-10-12
 (`~/Documents/CK/internals/kotlin-workshop-lab/jetcasterDesign`) and it differs from spec/01 in ways
@@ -150,4 +156,9 @@ Measured rather than believed, all reproducible:
 - `npm run properties` reports 53 CSS properties in 887 declarations, of which 16 (53 declarations) are
   named by no mapping spec. Those 16 are the gap spec/13 exists to close, and `npm run repair` renders
   them as a paste-ready ask for the design tool.
-- `npm test` is 92 tests over the prompt builder, the validator and the property map.
+- `npm test` is 196 tests over the prompt builder, the validator, the property map, the resolver, the
+capture and the emitter.
+- `node tools/emit-compose.mjs --write <commonMain>/kotlin` emits `Color.kt`, `Theme.kt` and one
+composable, and `./app/gradlew -p app :shared:compileKotlinJvm` in the workshop compiles them: 5 class
+files under `ui/generated`, exit 0. That command is the oracle, and it is what refuted the two API
+premises above.

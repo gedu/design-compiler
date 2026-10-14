@@ -30,7 +30,7 @@ the plain M3 component, never a hand-rolled one.
 | \`border-radius\` per corner | \`RoundedCornerShape(topStart, topEnd, bottomEnd, bottomStart)\` |
 | \`background-color\` | the component's color parameter where one exists (\`Card\` uses \`containerColor\`), otherwise \`Modifier.background(MaterialTheme.colorScheme.<role>)\` |
 | \`color\` | \`color = MaterialTheme.colorScheme.<role>\` on \`Text\`/\`Icon\`, or rely on \`LocalContentColor\` inside a container that already sets it |
-| \`box-shadow\` | nothing. Elevation only, from \`data-elevation\`: \`tonalElevation\` and \`shadowElevation\` on Card, or \`Modifier.shadow(elevation.dp, shape)\` |
+| \`box-shadow\` | nothing. Elevation only, from \`data-elevation\`: on Card \`elevation = CardDefaults.cardElevation(defaultElevation = n.dp)\`, elsewhere \`Modifier.shadow(elevation.dp, shape)\`. See trap 4: Card exposes no tonal elevation in the pinned material3 |
 | \`border\` | \`Modifier.border(width.dp, Brush.color(c), shape)\` or \`BorderStroke\` on Card |
 | \`opacity\` | \`Modifier.alpha()\`. Flag it: M3 uses state layers, not alpha, and a painted alpha usually means a container role was missed |
 | \`overflow: hidden\` | \`Modifier.clipToBounds()\`, or rely on \`Modifier.clip(shape)\` |
@@ -52,7 +52,7 @@ the plain M3 component, never a hand-rolled one.
 
 | IR role | Compose |
 | --- | --- |
-| Card | \`Card(containerColor, shape, tonalElevation, elevation = CardDefaults.cardElevation(...))\` |
+| Card | \`Card(shape, colors = CardDefaults.cardColors(containerColor = ...), elevation = CardDefaults.cardElevation(defaultElevation = ...))\`. No \`background()\` in the modifier: Card paints its own container, so a second background paints the role twice and fights the Card's clipping |
 | TopAppBar region | \`TopAppBar(title, colors = TopAppBarDefaults.topAppBarColors(...))\` inside \`Scaffold(topBar = ...)\` |
 | now-playing-bar region | \`Scaffold(bottomBar = ...)\`, never a plain sibling at the end of a Column |
 | Button | \`Button / FilledTonalButton / OutlinedButton / TextButton\`, chosen by which color roles the computed background and foreground carry. Filled when primary/onPrimary, tonal when secondaryContainer/onSecondaryContainer, outlined when outline, text when transparent background |
@@ -112,8 +112,17 @@ clickable.
 
 ### 4. Elevation is tonal, not black
 
-Do not emit \`Modifier.shadow\` from a CSS shadow, ever (see spec/01). Also do not emit both
-\`tonalElevation\` and a hand-drawn overlay; the component does the overlay itself.
+Do not emit \`Modifier.shadow\` from a CSS shadow, ever (see spec/01). Also do not emit both an
+elevation and a hand-drawn overlay; the component does the overlay itself.
+
+Measured against material3 1.12.0-alpha03, which contradicts what this row used to claim: \`Card\`
+carries **no** tonal elevation at all. \`CardDefaults.cardElevation\` declares
+\`defaultElevation, pressedElevation, focusedElevation, hoveredElevation, draggedElevation,
+disabledElevation\` and rejects \`tonalElevation\` with \`NAMED_PARAMETER_NOT_FOUND\`; \`CardElevation\`
+exposes only \`shadowElevation\`. \`tonalElevation\` exists on \`Surface\`, which \`Card\` does not
+forward. So the number from \`data-elevation\` lands on \`defaultElevation\`, and the emitted file
+says the trap wanted tonal. The part of this trap that mattered is unchanged: the value comes from
+\`data-elevation\`, never from a \`box-shadow\`, and in this version it is a shadow elevation.
 
 ### 5. Fixed sizes fight the desktop window and font scaling
 
