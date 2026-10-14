@@ -156,7 +156,7 @@ Measured rather than believed, all reproducible:
 - `npm run properties` reports 53 CSS properties in 887 declarations, of which 16 (53 declarations) are
   named by no mapping spec. Those 16 are the gap spec/13 exists to close, and `npm run repair` renders
   them as a paste-ready ask for the design tool.
-- `npm test` is 196 tests over the prompt builder, the validator, the property map, the resolver, the
+- `npm test` is 197 tests over the prompt builder, the validator, the property map, the resolver, the
 capture and the emitter.
 - `node tools/emit-compose.mjs --write <commonMain>/kotlin` emits `Color.kt`, `Theme.kt` and one
 composable, and `./app/gradlew -p app :shared:compileKotlinJvm` in the workshop compiles them: 5 class

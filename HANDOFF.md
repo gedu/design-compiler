@@ -76,18 +76,30 @@ Two consequences that outrank everything below:
 Status as of 2026-10-14: **T0, T1, T2, T2.5, T3, T3.1 are done, and T5 has its answer written down.**
 The input side is built, and the first emitter exists: \`tools/capture.mjs\` (frame to the spec/02 tree)
 and \`tools/emit-compose.mjs\` (that tree to \`Color.kt\`, \`Theme.kt\` and one composable, in a
-\`ui.generated\` package). \`npm test\` is 196 tests.
+\`ui.generated\` package). \`npm test\` is 197 tests.
 
 T5's decision is recorded in \`odd/tasks/design-compiler.md\`: **grow it into T6, do not throw it
-away**, with two named debts. Debt 1 blocks T6 and needs a human call: spec/02 has no field for a
-resolved type role and its role enum cannot name Column or IconButton, so the schema must be amended
-before an IR file is written to disk. Debt 2 is mechanical: the emitter reads an in-memory tree, and
+away**, with two named debts. **Debt 1 was paid on 2026-10-14 (\`ded3e16\`), except one decision that
+belongs to a human and is still open.** spec/02 now declares \`Node.type\` and \`Node.callback\` as
+fields and its enum names Column, Button, IconButton and IconToggleButton, so type roles no longer ride
+in \`notes\` and the toggle is named for real. What is NOT resolved: a clickable SURFACE keeps its
+surface role (spec/02, and the capture enforces it) and "its boolean is a parameter" is true in prose
+but has no carrier, because \`stateProp\` only travels inside \`node.callback\` and a card with no
+accessible name has no callback to put it in. The \`selected\` boolean resolves correctly and is then
+dropped, with \`callback-inferred\` firing for the wrong reason. T6 needs a field decision for a surface
+boolean; do not smuggle it through \`callback\`, which would force inventing a callback name spec/02
+forbids. Badge, List, Grid, Progress, Spinner, Snackbar and Tooltip are also still outside the enum.
+Debt 2 is mechanical: the emitter reads an in-memory tree, and
 T6's contract is an IR on disk, so the seam to extract is \`emitCompose(ir, tokens, opts)\`, which
 already takes the IR as a parameter.
 
 **One half of T5 is still open and is not pretending to be closed.** Its acceptance says "compiles
 *and* looks like the frame". It compiles: \`:shared:compileKotlinJvm\` exit 0, 5 class files under
-\`ui/generated\`, measured against a green baseline. Nobody has seen it render. Every render host needs
+\`ui/generated\`, measured against a green baseline. Read that oracle the way \`docs/lessons.md\`
+(up-to-date-is-not-a-green-oracle) says: emit first, \`cmp\` the freshly written bytes against the
+goldens in the tree that actually compiles, and force the task with \`--rerun\`, because
+\`BUILD SUCCESSFUL\` with \`compileKotlinJvm UP-TO-DATE\` reuses a previous verdict and proves nothing
+about the bytes in front of you. Nobody has seen it render. Every render host needs
 a file written into the workshop repo, which carries the human's uncommitted WIP, so this spike did not
 write one. \`emulator-5554\` is attached on this machine, so the check is one approved preview host away,
 not a build away. Say so before calling T5 finished.
@@ -122,7 +134,9 @@ Environment already available on this machine: Node 24, \`npx\`, Playwright with
 material3 1.12.0-alpha03, and \`:shared:allTests\` plus \`:shared:compileKotlinJvm\` work. There is no
 Kotlin CLI on the PATH, so compile through Gradle, and the wrapper is in \`app/\`, not at the repo root:
 \`./app/gradlew -p app :shared:compileKotlinJvm\` from the workshop root, or \`cd app && ./gradlew
-:shared:compileKotlinJvm\`. Measured both ways, exit 0.
+:shared:compileKotlinJvm\`. Measured both ways, exit 0. Add \`--rerun\` when the point of the run is to
+prove freshly emitted bytes compile: otherwise Gradle answers the question "did this change the ABI?"
+and reports UP-TO-DATE.
 
 Two rules about that repo, which is not yours. It carries the human's uncommitted work (\`docs/\`,
 \`guide/\`, \`odd/\`, \`tools/\`), so commit nothing there: emitted files stay additive and untracked.

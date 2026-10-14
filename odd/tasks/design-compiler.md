@@ -438,6 +438,9 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     the Node-tree-to-Kotlin link, which is WU5. It also surfaced a schema gap that T6 cannot inherit
     silently (spec/02 has no field for a resolved type role, and its enum cannot name half of
     spec/04's components) -- recorded as an open discrepancy in `docs/lessons.md` with T6 as owner.
+    That gap description is what WU4b measured and is now historical: WU6 (`ded3e16`) closed it for
+    `type`, `callback` and the four roles the capture actually proposes. What survives it is the surface
+    boolean's missing carrier, still open, named in the T6 debt below.
   - **WU5 feat(emit) `af61df4`** -- `tools/emit-compose.mjs` + `tests/emit-compose.test.mjs` (24 tests;
     `npm test` 196/196) + the three emitted files as goldens. `Color.kt` (34 roles x 2 schemes, copied
     role-for-role and hex-for-hex out of tokens.json), `Theme.kt` (both schemes plus the shape steps),
@@ -499,13 +502,45 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     repo, which carries the human's uncommitted WIP and is not this spike's to modify. An emulator
     (`emulator-5554`) is attached on this machine, so the check is one approved preview host away, not
     a build away. It is left open deliberately rather than closed by a screenshot of something else.
+  - **WU6 amendment: the toggle became a component, and the IR carries its boolean (`ded3e16`).** spec/02's
+    Node gained `type` and `callback` as declared fields and the enum gained Column, Button, IconButton
+    and IconToggleButton, so the schema gap WU4b surfaced is closed for the values this spike actually
+    produces -- type roles are no longer `notes` strings and the emitted toggle is named rather than
+    approximated by a Box. `resolveToggle` demands three facts from three sources before it names a
+    boolean: the live aria attribute, the same `data-component`'s `{{ }}` hole on that same attribute, and
+    the `data-props` schema typing that hole `boolean`. Disagreement leaves `stateProp` null with a note
+    saying which fact was missing; the runtime resolves `aria-pressed="{{ subscribed }}"` to
+    `aria-pressed="false"`, so the name exists only in the template text and a guessed one is exactly the
+    invention spec/02 forbids. Three consequences worth keeping: a toggle whose content is not icon-shaped
+    raises `toggle-widget-unresolved` and keeps the boolean as a parameter instead of guessing between
+    ToggleButton and Switch; `Button` stays in the emitter's refusal list on purpose, because spec/04
+    chooses among four variants by a color-role pair no fixture here exercises; and the authored 48px is
+    not emitted because the pinned IconButton/IconToggleButton KDoc states a 48x48dp minimum, which is the
+    authority for spec/04's "do not add a size" (a larger authored target would still be kept -- the
+    implied value is a minimum, not a replacement).
+  - **What WU6 paid off, and the one thing it did not.** It turned 15 red tests into the expected fallout
+    of an amendment rather than a mystery: 5 capture tests pinned the closed gap, 3 emitter tests pinned
+    the old emission, 7 property-map tests came from ONE stale spec line citation (`--relocate` fixed it --
+    spec line numbers are load-bearing, and inserting a table row edits every citation below it). The
+    honesty guard "never invent a role" was moved to the mechanism via a test-only `roleEnum` seam, not
+    deleted, because `Badge` is still outside the enum but nothing in `capture.mjs` ever proposes it, so
+    pinning the guard to `Badge` would have asserted an unreachable path. It did NOT give a clickable
+    SURFACE a carrier for its boolean: spec/02 says a Card that carries `aria-pressed` keeps the Card role
+    and "its boolean is a parameter", and the capture obeys the first half while the second has nowhere to
+    live -- `stateProp` travels only inside `node.callback`, and the card has no accessible name, so no
+    callback, so `selected` resolves correctly and is dropped, with `callback-inferred` firing for the
+    wrong reason. That is a schema decision for a human, recorded in Debt 1 below and in
+    `docs/lessons.md`.
   - **Decision, as T5 requires: grow it, do not throw it away.** Three parts are inheritable as they
     stand and re-deriving them would only re-pay the traps: `tools/browser.mjs`'s offline materializer,
     `tools/capture.mjs` (32 tests, the reduction and inheritance rules it had to learn), and
     `emit-compose.mjs`'s single `modifierOf` ordering function with the trap it encodes. Two debts must
-    be paid before this becomes T6 rather than a spike that kept working by luck. Debt 1 is the spec/02
-    schema gap: type roles currently ride in `notes` as strings and the role enum cannot name
-    Column/IconButton, so T6 must amend spec/02 before an IR file is written to disk. Debt 2 is coupling:
+    be paid before this becomes T6 rather than a spike that kept working by luck. **Debt 1 was paid on
+    2026-10-14 (`ded3e16`) except for one decision that is not the spike's to make:** spec/02 declares
+    `Node.type` and `Node.callback` and its enum names Column/Button/IconButton/IconToggleButton, so
+    nothing rides in `notes` any more. Still owed by a human: which field carries a clickable SURFACE's
+    boolean, since a surface keeps its role and may legitimately have no callback to attach one to. Debt
+    2 is coupling:
     the emitter calls `captureFrame` and reads an in-memory tree, while T6's contract is an IR on disk --
     so the seam to extract is `emitCompose(ir, tokens, opts)`, which already takes the IR as a parameter
     and is the only reason this is a grow rather than a rewrite. The spike's one-off parts are named and
@@ -515,11 +550,19 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
 - [ ] T6 Extraction to a real IR on disk
   - Blocked by: T5 (T2.5 is done: `spec/13-bridge.md` defines what extraction may assume, and
     `tools/css-harvest.mjs` is the reader it must reuse rather than rewrite)
-  - **Schema debt carried from T5, and it needs a human decision before the first IR file is written:**
-    spec/02's Node has no field for a resolved type role (the spike rides it in `notes` as a string), and
-    its role enum lists Row but not Column, and not IconButton/Badge/List/Grid -- all of which spec/04's
-    component table keys on. Either amend spec/02 or narrow spec/04. `callback` is already the one field
-    the spike emits that spec/02 does not define, pinned at exactly one by test so it cannot drift.
+  - **Schema debt carried from T5: mostly paid on 2026-10-14 (`ded3e16`), one decision left.** spec/02
+    now declares `type` and `callback` on the Node, and the enum names Column, Button, IconButton and
+    IconToggleButton, so the "amend spec/02 or narrow spec/04" choice is made and amended. Badge, List,
+    Grid, Progress, Spinner, Snackbar and Tooltip remain outside the enum -- spec/04's table keys on them
+    and no capture path proposes them, so they stay honest refusals until something measures them.
+    **The open one needs a human:** a clickable SURFACE keeps its surface role (spec/02 and the capture
+    both enforce that), and its boolean is a parameter -- but there is no field to carry it, because
+    `stateProp` only travels inside `node.callback` and a surface with no accessible name has no callback.
+    Do not resolve it by routing the boolean through `callback`: that would force inventing a callback name
+    spec/02 explicitly forbids ("an element that merely looks tappable yields a diagnostic, not a
+    callback"). Candidates are `Node.states`, which is empty on exactly this node today, or a dedicated
+    field; either way the emitter's parameter list has to read it, and the fixture's `selected` is the
+    measured case that shows it is missing.
   - **Mechanical debt, not a decision:** extract the emitter's seam. `emitCompose(ir, tokens, opts)`
     already takes the IR as a parameter, so pointing it at an IR on disk instead of calling
     `captureFrame` itself is the whole change.
@@ -610,8 +653,9 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
 
 - T0 and T5 retire the two unknowns; T4 retires the one that needs a human. Do not start T6 before
   T5 has an answer in writing.
-- T5 has its answer in writing as of 2026-10-14 (grow, not throw away), and T6's blocker is now its own
-  schema debt above rather than T5. What T5 did NOT retire is the visual half of its own acceptance: the
+- T5 has its answer in writing as of 2026-10-14 (grow, not throw away), and WU6 (`ded3e16`) paid most of
+  its schema debt; what is left of T6's blocker is one human decision, named in the T6 debt above, about
+  the field that would carry a clickable surface's boolean. What T5 did NOT retire is the visual half of its own acceptance: the
   emitted card has compiled and has never been rendered. Anyone who runs it and finds the geometry wrong
   should treat that as a new measurement, not as a surprise.
 - The highest-value artifact in this repository is the golden suite, not the CLI.
