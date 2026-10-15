@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&amp;display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&amp;display=block"></helmet>
+<div style="box-sizing: border-box; width: 100%; background: var(--md-sys-color-surface-container-high); display: flex; flex-direction: column;">
+  <div role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100" style="height: 4px; background: var(--md-sys-color-secondary-container); overflow: hidden;">
+    <div style="height: 4px; width: {{ pctCss }}; background: var(--md-sys-color-primary); transition: width 1s linear;"></div>
+  </div>
+  <div style="min-height: 72px; display: flex; align-items: center; gap: var(--md-sys-space-12); padding: var(--md-sys-space-8) var(--md-sys-space-12) var(--md-sys-space-8) var(--md-sys-space-16);">
+    <div style="flex: none; width: 48px; height: 48px; border-radius: var(--md-sys-shape-corner-small); background: {{ coverBg }}; color: {{ coverFg }}; display: flex; align-items: center; justify-content: center;">
+      <span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1; font-variation-settings: 'FILL' 1;">{{ glyph }}</span>
+    </div>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div style="font: var(--md-sys-typescale-title-small); letter-spacing: var(--md-sys-typescale-title-small-tracking); color: var(--md-sys-color-on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ title }}</div>
+      <div style="display: flex; gap: var(--md-sys-space-8); font: var(--md-sys-typescale-body-small); letter-spacing: var(--md-sys-typescale-body-small-tracking); color: var(--md-sys-color-on-surface-variant); white-space: nowrap; overflow: hidden;">
+        <span style="overflow: hidden; text-overflow: ellipsis;">{{ podcast }}</span>
+        <span style="font-variant-numeric: tabular-nums; flex: none;">{{ timeLabel }}</span>
+      </div>
+    </div>
+    <div style="flex: none; display: flex; align-items: center; gap: var(--md-sys-space-4);">
+      <sc-if value="{{ showSkip }}" hint-placeholder-val="{{ true }}">
+        <button aria-label="Back 10 seconds" title="Back 10 seconds" onClick="{{ back }}" style="width: 48px; height: 48px; padding: 0; border: none; border-radius: var(--md-sys-shape-corner-full); background: transparent; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: var(--md-sys-color-surface-container-highest);"><span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1;">replay_10</span></button>
+      </sc-if>
+      <button aria-label="{{ toggleLabel }}" title="{{ toggleLabel }}" onClick="{{ toggle }}" style="width: 48px; height: 48px; padding: 0; border: none; border-radius: var(--md-sys-shape-corner-full); background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); display: flex; align-items: center; justify-content: center; cursor: pointer;"><span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1; font-variation-settings: 'FILL' 1;">{{ toggleIcon }}</span></button>
+      <sc-if value="{{ showSkip }}" hint-placeholder-val="{{ true }}">
+        <button aria-label="Forward 30 seconds" title="Forward 30 seconds" onClick="{{ fwd }}" style="width: 48px; height: 48px; padding: 0; border: none; border-radius: var(--md-sys-shape-corner-full); background: transparent; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: var(--md-sys-color-surface-container-highest);"><span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1;">forward_30</span></button>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:80},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Kotlin 2.4 in ten minutes&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;podcast&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Compiled Weekly&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;category&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Tech&quot;,&quot;News&quot;,&quot;Comedy&quot;],&quot;default&quot;:&quot;Tech&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;elapsed&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:744,&quot;tsType&quot;:&quot;number&quot;},&quot;total&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1860,&quot;tsType&quot;:&quot;number&quot;},&quot;playing&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;compact&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;onToggle&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onSeek&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(delta: number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const v = n => `var(--md-sys-color-${n})`;
+    const map = { Tech: ['secondary-container', 'on-secondary-container', 'terminal'], News: ['tertiary-container', 'on-tertiary-container', 'newspaper'], Comedy: ['primary-container', 'on-primary-container', 'sentiment_very_satisfied'] };
+    const [c, oc, glyph] = map[p.category ?? 'Tech'] || map.Tech;
+    const total = p.total ?? 1860, el = Math.min(p.elapsed ?? 744, total);
+    const fmt = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = String(s % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`; };
+    const pct = Math.round(el / total * 1000) / 10;
+    const playing = p.playing ?? true;
+    return {
+      title: p.title ?? 'Kotlin 2.4 in ten minutes', podcast: p.podcast ?? 'Compiled Weekly',
+      coverBg: v(c), coverFg: v(oc), glyph,
+      pct, pctCss: pct + '%', timeLabel: `${fmt(el)} / ${fmt(total)}`,
+      showSkip: p.compact ? false : true,
+      toggleIcon: playing ? 'pause' : 'play_arrow', toggleLabel: playing ? 'Pause' : 'Play',
+      toggle: () => p.onToggle && p.onToggle(),
+      back: () => p.onSeek && p.onSeek(-10),
+      fwd: () => p.onSeek && p.onSeek(30),
+    };
+  }
+}
+</script>
+</body>
+</html>

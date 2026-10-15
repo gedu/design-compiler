@@ -1,0 +1,192 @@
+{
+  "project": "Mini Jetcaster",
+  "designSystem": "Material Design 3 (m3.material.io, including the M3 Expressive update, as of October 2026). No expressive-only components used.",
+  "seedColor": {
+    "name": "Material baseline",
+    "hex": "#6750A4"
+  },
+  "files": [
+    {
+      "path": "tokens.json",
+      "purpose": "design tokens (contract)",
+      "format": "json"
+    },
+    {
+      "path": "tokens.css",
+      "purpose": "CSS custom properties generated from tokens.json; the only file with literal colors besides tokens.json and Color.kt",
+      "format": "css"
+    },
+    {
+      "path": "Color.kt",
+      "purpose": "baseline light and dark color values",
+      "format": "kotlin"
+    },
+    {
+      "path": "Theme.kt",
+      "purpose": "commonMain MiniJetcasterTheme",
+      "format": "kotlin"
+    },
+    {
+      "path": "DESIGN-BRIEF.md",
+      "purpose": "decisions, invented values, open questions, checklist",
+      "format": "markdown"
+    },
+    {
+      "path": "SCREENS.md",
+      "purpose": "per-component spec mapped to Kotlin files",
+      "format": "markdown"
+    },
+    {
+      "path": "Mini Jetcaster.dc.html",
+      "purpose": "live board with every frame; ?frame=<id> renders one frame, ?theme=dark switches scheme",
+      "format": "html"
+    },
+    {
+      "path": "Home.dc.html",
+      "purpose": "HomeScreen mockup (props: width, height, dark, platform, preset)",
+      "format": "html"
+    },
+    {
+      "path": "PodcastCard.dc.html",
+      "purpose": "PodcastCard mockup",
+      "format": "html"
+    },
+    {
+      "path": "EpisodeRow.dc.html",
+      "purpose": "EpisodeRow mockup",
+      "format": "html"
+    },
+    {
+      "path": "NowPlayingBar.dc.html",
+      "purpose": "NowPlayingBar mockup",
+      "format": "html"
+    }
+  ],
+  "screens": [
+    {
+      "id": "HomeScreen.compact",
+      "image": "screens/HomeScreen.compact.png",
+      "html": "screens/HomeScreen.compact.html",
+      "spec": "SCREENS.md#homescreenkt",
+      "states": [
+        "populated"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "HomeScreen.medium",
+      "image": "screens/HomeScreen.medium.png",
+      "html": "screens/HomeScreen.medium.html",
+      "spec": "SCREENS.md#homescreenkt",
+      "states": [
+        "filteredByCategory"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "HomeScreen.expanded",
+      "image": "screens/HomeScreen.expanded.png",
+      "html": "screens/HomeScreen.expanded.html",
+      "spec": "SCREENS.md#homescreenkt",
+      "states": [
+        "playing"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "HomeScreen.dark",
+      "image": "screens/HomeScreen.dark.png",
+      "html": "screens/HomeScreen.dark.html",
+      "spec": "SCREENS.md#theme",
+      "states": [
+        "compactPlaying",
+        "expandedPopulated"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "PodcastCard",
+      "image": "screens/PodcastCard.png",
+      "html": "screens/PodcastCard.html",
+      "spec": "SCREENS.md#podcastcardkt",
+      "states": [
+        "notSubscribed",
+        "subscribed",
+        "selected",
+        "twoLineAuthor",
+        "longTitle",
+        "noImageUrl"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "EpisodeRow",
+      "image": "screens/EpisodeRow.png",
+      "html": "screens/EpisodeRow.html",
+      "spec": "SCREENS.md#episoderowkt",
+      "states": [
+        "default",
+        "selected",
+        "playing",
+        "paused",
+        "played",
+        "longTitle",
+        "under1m",
+        "over2h"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "NowPlayingBar",
+      "image": "screens/NowPlayingBar.png",
+      "html": "screens/NowPlayingBar.html",
+      "spec": "SCREENS.md#nowplayingbarkt",
+      "states": [
+        "playing40",
+        "paused",
+        "compact"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "States",
+      "image": "screens/States.png",
+      "html": "screens/States.html",
+      "spec": "SCREENS.md#episodelistkt",
+      "states": [
+        "loading",
+        "error",
+        "searchWithText",
+        "emptySearch",
+        "badge0",
+        "badge12",
+        "subscribed"
+      ],
+      "expressiveOnly": []
+    },
+    {
+      "id": "States.Desktop",
+      "image": "screens/States.Desktop.png",
+      "html": "screens/States.Desktop.html",
+      "spec": "SCREENS.md#homescreenkt",
+      "states": [
+        "hoverCard",
+        "hoverRow",
+        "hoverIconButton",
+        "focusSearch",
+        "focusToggle",
+        "minimumWidth"
+      ],
+      "expressiveOnly": []
+    }
+  ],
+  "unknowns": [
+    "Episodes are not mapped to podcasts in the brief; every podcast shows the same eight episodes.",
+    "Only three podcasts have a description; the others show title and author only.",
+    "No 40-character podcast title exists in the content; the long-title card uses an episode title as a stress test.",
+    "Search placeholder text 'Search podcasts' is not in the brief.",
+    "Badge color: spec default (error) kept although a subscription count is not an error.",
+    "Fixed color roles (primaryFixed etc.) exist in the generator output but are not in the allowed role list, so they are excluded.",
+    "PNGs are captures of the live board (compact at 4x, others at 2x), light scheme except HomeScreen.dark."
+  ]
+}

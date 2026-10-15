@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&amp;display=swap">
+<style>
+@import "more.css";
+.badge::after { content: "new"; }
+@keyframes mj-rise { from { transform: translateY(40px); } }
+.blur { filter: blur(6px); }
+</style>
+</head>
+<body>
+<div class="Album_Card {{ themeClass }}" data-component="AlbumCard" data-props="{&quot;title&quot;:{&quot;default&quot;:&quot;Compiled Weekly&quot;}}" style="position: relative; width: 200px; min-height: 100vh; display: grid; background: #FF00FF; font-family: Roboto, system-ui, sans-serif;">
+  <img src="https://cdn.example.invalid/cover.png" style="width: 96px; clip-path: circle(48%);">
+  <div data-box="cover" data-overlay="cover" style="position: absolute; left: 8px; bottom: 8px; animation: mj-rise 200ms; background: linear-gradient(to top, black, transparent); color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent); transition: background 200ms;" style-hover="background: rgba(103, 80, 164, 0.4);">
+    <span style="font-family: 'Material Symbols Outlined';">bookmark_add</span>
+  </div>
+  <h2 style="font-size: 16px;">{{ title }}</h2>
+  <sc-for list="{{ chips }}" as="chip">
+    <span style="font-size: 12px;">Subscribed</span>
+  </sc-for>
+  <p style="font-size: 12px;">Lorem ipsum dolor sit amet</p>
+  <div onClick="{{ tap }}" style="width: 48px; height: 48px; background: rgba(0, 0, 0, 0.05);"></div>
+</div>
+</body>
+</html>

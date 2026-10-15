@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="stylesheet" href="tokens.css"><style>
+/* The reference export pulls these two faces from fonts.googleapis.com; the vendor router refuses
+   anything .vendor/vendor-lock.json does not pin, and rules/...:css-inline-no-external and
+   :no-remote-links-emitted both call a remote stylesheet an error, so the faces a board of this
+   fixture needs are the vendored bytes, inlined and pointed at ./fonts/. Rules copied from
+   .vendor/roboto.css (the latin subset) and .vendor/material-symbols-outlined.css; the latin subset
+   covers every character this card draws. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(./fonts/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBHMdazQ.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(./fonts/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBHMdazQ.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(./fonts/kJF4BvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oDMzBwG-RpA6RzaxHMPdY40KH8nGzv3fzfVJU22ZZLsYEpzC_1ver5Y0J1Llf.woff2) format('woff2');
+}
+body { margin: 0; }
+/* Dark scheme. The export declares it on the .md-dark class, which only a script can switch, so
+   rules/contract-rules.json:dark-reachable-prefers-color-scheme reports it. The media query that
+   satisfies it lives in this fixture's tokens.css, which restates the .md-dark roles under
+   prefers-color-scheme: dark. tokens.css is the only file the contract lets hold a literal color,
+   per no-literal-hex-outside-tokens, so that is where those roles are restated. This board adds
+   only color-scheme, so the browser's own controls follow the same scheme. */
+@media (prefers-color-scheme: dark) {
+  .md-light { color-scheme: dark; }
+}
+</style></helmet>
+<div class="md-light" style="box-sizing: border-box; padding: 24px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-body-medium);">
+  <sc-if value="{{ showFrame }}" hint-placeholder-val="{{ true }}">
+    <!-- data-region="content": the one region this board owns is the content the card occupies.
+         region-intent-declared's allowed values name Scaffold regions of a screen, and a lone card
+         is no top-bar, no now-playing-bar and no snackbar, so content is the only true answer. -->
+    <div id="{{ frameId }}" data-region="content" style="width: 180px;"><dc-import name="PodcastCard" hint-size="180px,272px"></dc-import></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;frame&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;PodcastCard.compact&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  // One frame only. The reference board renders one section per ?frame= value and the PodcastCard
+  // section lays out all six declared states side by side, which is a state sheet, not a card. A
+  // golden emitter needs exactly one instance, so this board asks for one card and names its frame
+  // id with the width class the manifest declares.
+  renderVals() {
+    const wanted = new URLSearchParams(location.search).get('frame') ?? this.props.frame;
+    const id = 'PodcastCard.compact';
+    return { showFrame: !wanted || wanted === id, frameId: id };
+  }
+}
+</script>
+</body>
+</html>

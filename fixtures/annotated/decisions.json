@@ -1,0 +1,39 @@
+{
+  "decisions": [
+    {
+      "value": "One card, one frame, id PodcastCard.compact",
+      "reason": "fixtures/reference/Mini Jetcaster.dc.html renders the six declared PodcastCard states side by side inside the one section named PodcastCard, so ?frame=PodcastCard yields six instances of every node. A golden emitter needs exactly one instance, which is the whole reason this board exists instead of the reference one."
+    },
+    {
+      "value": "states: [\"notSubscribed\"]",
+      "reason": "the single card this board renders is the data-props default set: subscribed false, selected false, force empty. The other five states the reference manifest declares belong to the reference state sheet, not to this frame."
+    },
+    {
+      "value": "card box 180x272",
+      "reason": "measured off this board, not chosen. It comes from the card template's own $preview width 180 and the reference board's 168px-wide column plus the frame's padding; the frame is 24px on a side and the card fills it."
+    },
+    {
+      "value": "Roboto 400/500 and Material Symbols Outlined inlined as @font-face from .vendor/, with the latin subset under ./fonts/",
+      "reason": "the reference export loads both from fonts.googleapis.com. The vendor router refuses anything .vendor/vendor-lock.json does not pin, and css-inline-no-external plus no-remote-links-emitted both call a remote stylesheet an error, so an honest offline fixture has to carry the faces itself. The runtime already re-emits these links as a style element at render time."
+    },
+    {
+      "value": "@media (prefers-color-scheme: dark) appended to this fixture's tokens.css",
+      "reason": "dark-reachable-prefers-color-scheme errors on a dark scheme that only a script can reach. The block restates the .md-dark roles so a dark OS preference reaches the same scheme with no script, and it lives in tokens.css because that is the only file allowed to hold a literal color."
+    },
+    {
+      "value": "the two style-hover attributes dropped from the card",
+      "reason": "states-as-markup calls a state that only a hover reaches a state no code gets. The card already declares that state as a selectable prop: force takes hover, focus, hoverToggle and focusToggle and renderVals maps them to the same two surfaceContainer tiers."
+    },
+    {
+      "value": "the cover's category label placed with grid instead of position: absolute",
+      "reason": "layout-flex-grid-only allows absolute only for a declared overlay, and the contract has no machine-readable overlay declaration yet. The cover became a one-cell grid; the label keeps the same space8 inset and the same measured box."
+    }
+  ],
+  "invented": [
+    "the frame id PodcastCard.compact: the reference manifest names the card PodcastCard and states six states, and manifest-frames-declared wants a width class in the id, so this fixture adds the .compact segment the card's own $preview width of 180 supports. Nothing in the reference export names a width class for a single card.",
+    "the board file name Annotated.dc.html: no reference file is a single-card board, so this one had to be named.",
+    "data-component values podcast-card, podcast-card-cover, podcast-card-title and podcast-card-subscribe-toggle: names-kebab-ascii requires ASCII kebab-case, and SCREENS.md names these four parts of the card (Container, Cover placeholder, Text, Subscribe toggle). The reference export writes no data-component anywhere.",
+    "data-elevation=\"1\" on the card root: SCREENS.md specifies a filled Card, which is elevation 1 in M3, and the export paints it as a surfaceContainer tier rather than as a shadow, so the level is read from the design intent and not measured off a box-shadow.",
+    "data-region=\"content\" on the frame wrapper: this fixture's board is the only thing that could carry one, since region-intent-declared's allowed values name Scaffold regions of a screen and a single card is none of them."
+  ]
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AlbumCard</title>
+<style>
+.card {
+  box-sizing: border-box;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+  font-family: Roboto, system-ui, sans-serif;
+}
+.grid { display: grid; grid-template-columns: 96px 96px; gap: 8px; }
+@media (prefers-color-scheme: dark) {
+  .card { background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); }
+}
+</style>
+</head>
+<body>
+<div class="card" data-component="album-card" style="width: 180px; display: flex; flex-direction: column; gap: 8px; padding: 8px; background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); font-family: Roboto, system-ui, sans-serif;">
+  <svg data-icon="bookmark_add" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7v18l5-3 5 3z"></path></svg>
+  <div class="grid" data-grid-min="96" style="display: grid; grid-template-columns: 96px 96px; gap: 8px;">
+    <div style="width: 96px; height: 96px; background: var(--md-sys-color-primary-container);"></div>
+    <div style="width: 96px; height: 96px; background: var(--md-sys-color-primary);"></div>
+  </div>
+  <h2 style="font-size: 16px; line-height: 24px; font-weight: 500;">Compiled Weekly</h2>
+  <p style="font-size: 12px; line-height: 16px;">Ada Moreno</p>
+  <button data-action="subscribe" aria-label="Subscribe to Compiled Weekly" style="width: 48px; height: 48px; background: none;"></button>
+</div>
+</body>
+</html>

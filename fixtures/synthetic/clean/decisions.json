@@ -1,0 +1,6 @@
+{
+  "decisions": [
+    { "value": "96px grid cells", "reason": "two-up at the compact width class" }
+  ],
+  "invented": []
+}

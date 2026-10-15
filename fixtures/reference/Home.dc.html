@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&amp;display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&amp;display=block"><style>@keyframes mj-spin{to{transform:rotate(360deg)}}@keyframes mj-rise{from{transform:translateY(100%)}to{transform:translateY(0)}}</style></helmet>
+<div class="{{ themeClass }}" style="box-sizing: border-box; width: {{ w }}; height: {{ h }}; background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); display: flex; flex-direction: column; overflow: hidden; position: relative; font: var(--md-sys-typescale-body-medium);">
+  <sc-if value="{{ android }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: none; height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--md-sys-space-16) 0 var(--md-sys-space-24); color: var(--md-sys-color-on-surface); font: var(--md-sys-typescale-label-large);">
+      <span>9:30</span>
+      <span style="display: flex; gap: var(--md-sys-space-4); font-family: 'Material Symbols Outlined'; font-size: 16px; line-height: 1; font-variation-settings: 'FILL' 1;"><span>signal_cellular_alt</span><span>wifi</span><span>battery_full</span></span>
+    </div>
+  </sc-if>
+
+  <header style="flex: none; height: 64px; display: flex; align-items: center; gap: var(--md-sys-space-4); padding: 0 var(--md-sys-space-4) 0 var(--md-sys-space-16); background: var(--md-sys-color-surface);">
+    <h1 style="flex: 1; margin: 0; font: var(--md-sys-typescale-title-large); letter-spacing: var(--md-sys-typescale-title-large-tracking); color: var(--md-sys-color-on-surface);">Mini Jetcaster</h1>
+    <button aria-label="{{ subsLabel }}" title="{{ subsLabel }}" style="width: 48px; height: 48px; padding: 0; border: none; border-radius: var(--md-sys-shape-corner-full); background: transparent; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;" style-hover="background: var(--md-sys-color-surface-container-highest);">
+      <span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1;">subscriptions</span>
+      <sc-if value="{{ showBadge }}" hint-placeholder-val="{{ true }}">
+        <span style="position: absolute; top: 6px; left: 26px; min-width: 16px; height: 16px; padding: 0 var(--md-sys-space-4); box-sizing: border-box; border-radius: var(--md-sys-shape-corner-full); background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); font: var(--md-sys-typescale-label-small); letter-spacing: var(--md-sys-typescale-label-small-tracking); display: flex; align-items: center; justify-content: center;">{{ subCount }}</span>
+      </sc-if>
+    </button>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: {{ bodyDir }}; gap: {{ bodyGap }}; padding: {{ bodyPad }}; overflow-y: {{ bodyScroll }}; scrollbar-width: thin; scrollbar-color: var(--md-sys-color-outline-variant) var(--md-sys-color-surface);">
+    <section aria-label="Podcasts" style="flex: {{ gridFlex }}; min-width: 0; display: flex; flex-direction: column; gap: var(--md-sys-space-16); overflow-y: {{ paneScroll }}; padding: {{ gridPad }}; scrollbar-width: thin; scrollbar-color: var(--md-sys-color-outline-variant) var(--md-sys-color-surface);">
+      <div style="flex: none; height: 56px; display: flex; align-items: center; gap: var(--md-sys-space-4); padding: 0 var(--md-sys-space-4) 0 var(--md-sys-space-16); border-radius: var(--md-sys-shape-corner-full); background: var(--md-sys-color-surface-container-high); outline: {{ searchOutline }}; outline-offset: 2px; max-width: 720px;">
+        <span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1; color: var(--md-sys-color-on-surface);">search</span>
+        <input ref="{{ searchRef }}" value="{{ query }}" onInput="{{ onQuery }}" onFocus="{{ onSearchFocus }}" onBlur="{{ onSearchBlur }}" placeholder="Search podcasts" aria-label="Search podcasts" style="flex: 1; min-width: 0; height: 48px; margin-left: var(--md-sys-space-12); border: none; outline: none; background: transparent; color: var(--md-sys-color-on-surface); caret-color: var(--md-sys-color-primary); font: var(--md-sys-typescale-body-large); letter-spacing: var(--md-sys-typescale-body-large-tracking);">
+        <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+          <button aria-label="Clear search" title="Clear search" onClick="{{ clearQuery }}" style="width: 48px; height: 48px; padding: 0; border: none; border-radius: var(--md-sys-shape-corner-full); background: transparent; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: var(--md-sys-color-surface-container-highest);"><span style="font-family: 'Material Symbols Outlined'; font-size: 24px; line-height: 1;">close</span></button>
+        </sc-if>
+      </div>
+
+      <div role="group" aria-label="Category" style="flex: none; display: flex; flex-wrap: wrap; gap: var(--md-sys-space-8);">
+        <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="3">
+          <button aria-pressed="{{ chip.selected }}" onClick="{{ chip.toggle }}" style="height: 32px; box-sizing: border-box; display: flex; align-items: center; gap: var(--md-sys-space-8); padding: {{ chip.pad }}; border-radius: var(--md-sys-shape-corner-small); border: {{ chip.border }}; background: {{ chip.bg }}; color: {{ chip.fg }}; font: var(--md-sys-typescale-label-large); letter-spacing: var(--md-sys-typescale-label-large-tracking); cursor: pointer;" style-hover="{{ chip.hover }}">
+            <sc-if value="{{ chip.selected }}" hint-placeholder-val="{{ false }}"><span style="font-family: 'Material Symbols Outlined'; font-size: 18px; line-height: 1;">check</span></sc-if>
+            <span>{{ chip.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--md-sys-space-16); padding: var(--md-sys-space-32) var(--md-sys-space-16); color: var(--md-sys-color-on-surface-variant); text-align: center;">
+          <span style="font-family: 'Material Symbols Outlined'; font-size: 48px; line-height: 1;">search_off</span>
+          <span style="font: var(--md-sys-typescale-body-large); letter-spacing: var(--md-sys-typescale-body-large-tracking);">No podcasts match that search</span>
+        </div>
+      </sc-if>
+      <div style="flex: none; display: grid; grid-template-columns: {{ gridCols }}; gap: var(--md-sys-space-12);">
+        <sc-for list="{{ podcasts }}" as="p" hint-placeholder-count="6">
+          <dc-import name="PodcastCard" title="{{ p.title }}" author="{{ p.author }}" category="{{ p.category }}" subscribed="{{ p.subscribed }}" selected="{{ p.selected }}" force="{{ p.force }}" on-select="{{ p.select }}" on-toggle="{{ p.toggle }}" hint-size="100%,250px"></dc-import>
+        </sc-for>
+      </div>
+    </section>
+
+    <section aria-label="Episodes" style="flex: {{ paneFlex }}; width: {{ paneW }}; min-width: 0; display: flex; flex-direction: column; background: {{ paneBg }}; border-radius: {{ paneRadius }}; overflow: {{ paneOverflow }};">
+      <div style="flex: none; display: flex; flex-direction: column; gap: var(--md-sys-space-4); padding: var(--md-sys-space-16) var(--md-sys-space-24) var(--md-sys-space-12) var(--md-sys-space-16);">
+        <h2 style="margin: 0; font: var(--md-sys-typescale-title-large); letter-spacing: var(--md-sys-typescale-title-large-tracking); color: var(--md-sys-color-on-surface);">{{ sel.title }}</h2>
+        <span style="font: var(--md-sys-typescale-body-medium); letter-spacing: var(--md-sys-typescale-body-medium-tracking); color: var(--md-sys-color-on-surface-variant);">{{ sel.author }}</span>
+        <sc-if value="{{ sel.description }}" hint-placeholder-val="{{ false }}">
+          <p style="margin: var(--md-sys-space-4) 0 0; font: var(--md-sys-typescale-body-medium); letter-spacing: var(--md-sys-typescale-body-medium-tracking); color: var(--md-sys-color-on-surface-variant); text-wrap: pretty;">{{ sel.description }}</p>
+        </sc-if>
+      </div>
+      <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+        <div role="status" aria-label="Loading episodes" style="flex: 1; min-height: 200px; display: flex; align-items: center; justify-content: center;">{{ spinner }}</div>
+      </sc-if>
+      <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--md-sys-space-16); padding: var(--md-sys-space-24); text-align: center;">
+          <span style="font-family: 'Material Symbols Outlined'; font-size: 40px; line-height: 1; color: var(--md-sys-color-error);">error</span>
+          <span style="font: var(--md-sys-typescale-body-large); letter-spacing: var(--md-sys-typescale-body-large-tracking); color: var(--md-sys-color-on-surface);">Could not load episodes</span>
+          <button onClick="{{ retry }}" style="height: 40px; display: flex; align-items: center; gap: var(--md-sys-space-8); padding: 0 var(--md-sys-space-24) 0 var(--md-sys-space-16); border: none; border-radius: var(--md-sys-shape-corner-full); background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); font: var(--md-sys-typescale-label-large); letter-spacing: var(--md-sys-typescale-label-large-tracking); cursor: pointer;" style-hover="background: var(--md-sys-color-surface-container-highest);"><span style="font-family: 'Material Symbols Outlined'; font-size: 18px; line-height: 1;">refresh</span><span>Try again</span></button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isReady }}" hint-placeholder-val="{{ true }}">
+        <div style="flex: 1; min-height: 0; overflow-y: {{ paneScroll }}; padding-bottom: var(--md-sys-space-8); scrollbar-width: thin; scrollbar-color: var(--md-sys-color-outline-variant) transparent;">
+          <sc-for list="{{ episodes }}" as="e" hint-placeholder-count="5">
+            <dc-import name="EpisodeRow" title="{{ e.title }}" duration="{{ e.duration }}" date="{{ e.date }}" selected="{{ e.selected }}" playing="{{ e.playing }}" paused="{{ e.paused }}" played="{{ e.played }}" force="{{ e.force }}" on-select="{{ e.select }}" on-play="{{ e.play }}" hint-size="100%,72px"></dc-import>
+            <sc-if value="{{ e.divider }}" hint-placeholder-val="{{ true }}"><div style="height: 1px; margin-left: 72px; background: var(--md-sys-color-outline-variant);"></div></sc-if>
+          </sc-for>
+        </div>
+      </sc-if>
+    </section>
+  </div>
+
+  <sc-if value="{{ hasNowPlaying }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: none; animation: mj-rise var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized-decelerate);">
+      <dc-import name="NowPlayingBar" title="{{ np.title }}" podcast="{{ np.podcast }}" category="{{ np.category }}" elapsed="{{ np.elapsed }}" total="{{ np.total }}" playing="{{ np.playing }}" compact="{{ np.compact }}" on-toggle="{{ np.toggle }}" on-seek="{{ np.seek }}" hint-size="100%,76px"></dc-import>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ android }}" hint-placeholder-val="{{ false }}">
+    <div style="flex: none; height: 24px; display: flex; align-items: center; justify-content: center; background: {{ navBarBg }};"><span style="width: 108px; height: 4px; border-radius: var(--md-sys-shape-corner-full); background: var(--md-sys-color-on-surface);"></span></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:800},&quot;width&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1280,&quot;min&quot;:360,&quot;max&quot;:1600,&quot;tsType&quot;:&quot;number&quot;},&quot;height&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:800,&quot;tsType&quot;:&quot;number&quot;},&quot;dark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;android&quot;,&quot;desktop&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;preset&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;populated&quot;,&quot;search&quot;,&quot;category&quot;,&quot;empty&quot;,&quot;loading&quot;,&quot;error&quot;,&quot;playing&quot;,&quot;paused&quot;],&quot;default&quot;:&quot;populated&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;badgeCount&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;forceStates&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
+const PODCASTS = [
+  { title: 'Compiled Weekly', author: 'Ada Moreno', category: 'Tech', description: 'A Kotlin and Android news roundup, every Friday in 30 minutes.' },
+  { title: 'The Null Pointer', author: 'Sam Okafor and Lin Wei', category: 'Tech', description: 'Two engineers argue about the bugs that took down their week.' },
+  { title: 'Recomposed', author: 'Priya Nair', category: 'Tech' },
+  { title: 'The Morning Brief', author: 'Daily Desk', category: 'News' },
+  { title: 'Slow News Club', author: 'Marta Kowalska', category: 'News' },
+  { title: 'Standup Standup', author: 'Joe Ruiz', category: 'Comedy', description: 'Comedians read out their worst daily standup updates.' },
+  { title: 'Merge Conflict Therapy', author: 'Dana Fox and Theo Brandt', category: 'Comedy' },
+  { title: 'Off By One', author: 'Kai Lindqvist', category: 'Comedy' },
+];
+const EPISODES = [
+  ['Kotlin 2.4 in ten minutes', '31m', '2026-10-02'],
+  ['What is new in Compose Multiplatform', '34m', '2026-09-25'],
+  ['AGP 9 and the new Android KMP plugin', '29m', '2026-09-18'],
+  ['The cache that cached the error page', '55m', '2026-10-01'],
+  ['Time zones, again', '1h 07m', '2026-09-17'],
+  ['The meeting that could have been an email', '59s', '2026-09-21'],
+  ['Estimation poker, extended cut', '2h 01m', '2026-09-07'],
+  ['Why state flows down and events go up', '1h 30m', '2026-09-29'],
+].map(([title, duration, date]) => ({ title, duration, date }));
+const secs = d => { let s = 0; const h = /(\d+)h/.exec(d), m = /(\d+)m/.exec(d), x = /(\d+)s/.exec(d); if (h) s += +h[1] * 3600; if (m) s += +m[1] * 60; if (x) s += +x[1]; return s; };
+
+class Component extends DCLogic {
+  searchRef = React.createRef();
+  constructor(props) {
+    super(props);
+    const pr = props.preset ?? 'populated';
+    const s = { query: '', category: null, subs: { 0: true, 2: true }, selected: 0, epSelected: null, status: 'ready', playingIdx: null, playingPodcast: 0, playing: false, elapsed: 0, played: { 4: true }, searchFocus: false, retryFails: pr === 'error' };
+    if (pr === 'search') s.query = 'The';
+    if (pr === 'category') { s.category = 'Comedy'; s.selected = 5; }
+    if (pr === 'empty') s.query = 'Jazz';
+    if (pr === 'loading') s.status = 'loading';
+    if (pr === 'error') s.status = 'error';
+    if (pr === 'playing' || pr === 'paused') { s.playingIdx = 0; s.epSelected = 0; s.playing = pr === 'playing'; s.elapsed = Math.round(secs('31m') * 0.4); }
+    this.state = s;
+  }
+  componentDidMount() {
+    this.tick = setInterval(() => {
+      const st = this.state;
+      if (!st.playing || st.playingIdx == null) return;
+      const total = secs(EPISODES[st.playingIdx].duration);
+      if (st.elapsed + 1 >= total) this.setState({ elapsed: total, playing: false, played: { ...st.played, [st.playingIdx]: true } });
+      else this.setState({ elapsed: st.elapsed + 1 });
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.tick); clearTimeout(this.loadT); }
+  load(failFirst) {
+    clearTimeout(this.loadT);
+    this.setState({ status: 'loading' });
+    this.loadT = setTimeout(() => this.setState({ status: failFirst ? 'error' : 'ready' }), 900);
+  }
+  renderVals() {
+    const p = this.props, st = this.state;
+    const v = n => `var(--md-sys-color-${n})`;
+    const width = p.width ?? 1280, height = p.height ?? 800;
+    const compact = width < 600;
+    const android = (p.platform ?? (compact ? 'android' : 'desktop')) === 'android';
+    const paneW = width >= 1200 ? 400 : 320;
+    const avail = compact ? width - 32 : width - 48 - 24 - paneW;
+    const cols = Math.max(2, Math.min(5, Math.floor((avail + 12) / 152)));
+    const q = st.query.trim().toLowerCase();
+    const visible = PODCASTS.map((x, i) => ({ ...x, i })).filter(x => (!q || x.title.toLowerCase().includes(q)) && (!st.category || x.category === st.category));
+    const subCount = p.badgeCount ?? Object.values(st.subs).filter(Boolean).length;
+    const sel = PODCASTS[st.selected];
+    const chips = ['Tech', 'News', 'Comedy'].map(label => {
+      const on = st.category === label;
+      return {
+        label, selected: on,
+        pad: on ? '0 16px 0 8px' : '0 16px',
+        border: on ? `1px solid ${v('secondary-container')}` : `1px solid ${v('outline-variant')}`,
+        bg: on ? v('secondary-container') : 'transparent',
+        fg: on ? v('on-secondary-container') : v('on-surface-variant'),
+        hover: on ? '' : `background: ${v('surface-container-high')}`,
+        toggle: () => this.setState({ category: on ? null : label }),
+      };
+    });
+    const force = p.forceStates || {};
+    const podcasts = visible.map(x => ({
+      ...x, subscribed: !!st.subs[x.i], selected: x.i === st.selected, force: force.card === x.i ? (force.cardState || 'hover') : '',
+      select: () => { if (x.i !== st.selected) { this.setState({ selected: x.i, epSelected: null }); this.load(false); } },
+      toggle: () => this.setState({ subs: { ...st.subs, [x.i]: !st.subs[x.i] } }),
+    }));
+    const episodes = EPISODES.map((e, i) => {
+      const isPlaying = st.playingIdx === i && st.playingPodcast === st.selected;
+      return {
+        ...e, selected: st.epSelected === i, playing: isPlaying, paused: isPlaying && !st.playing, played: !!st.played[i] && !isPlaying,
+        force: force.row === i ? (force.rowState || 'hover') : '', divider: i < EPISODES.length - 1,
+        select: () => this.setState({ epSelected: i }),
+        play: () => {
+          if (isPlaying) this.setState({ playing: !st.playing });
+          else this.setState({ playingIdx: i, playingPodcast: st.selected, playing: true, elapsed: 0, epSelected: i });
+        },
+      };
+    });
+    const hasNP = st.playingIdx != null;
+    let np = {};
+    if (hasNP) {
+      const pod = PODCASTS[st.playingPodcast], ep = EPISODES[st.playingIdx], total = secs(ep.duration);
+      np = { title: ep.title, podcast: pod.title, category: pod.category, elapsed: st.elapsed, total, playing: st.playing, compact,
+        toggle: () => this.setState({ playing: !st.playing }),
+        seek: d => this.setState({ elapsed: Math.max(0, Math.min(total, st.elapsed + d)) }) };
+    }
+    const spinner = React.createElement('div', { style: { width: 48, height: 48, boxSizing: 'border-box', borderRadius: '50%', border: `4px solid ${v('secondary-container')}`, borderTopColor: v('primary'), animation: 'mj-spin 1s linear infinite' } });
+    const searchFocused = force.search || st.searchFocus;
+    return {
+      themeClass: p.dark ? 'md-dark' : 'md-light',
+      w: width + 'px', h: height + 'px', android,
+      subCount: subCount > 99 ? '99+' : String(subCount), showBadge: subCount > 0,
+      subsLabel: `${subCount} subscribed podcasts`,
+      bodyDir: compact ? 'column' : 'row', bodyGap: compact ? '24px' : '24px',
+      bodyPad: compact ? '0 0 16px' : '0 24px 16px', bodyScroll: compact ? 'auto' : 'hidden',
+      paneScroll: compact ? 'visible' : 'auto',
+      gridFlex: compact ? 'none' : '1', gridPad: compact ? '0 16px' : '0 4px 0 0',
+      paneFlex: 'none', paneW: compact ? 'auto' : paneW + 'px',
+      paneBg: compact ? v('surface') : v('surface-container-low'),
+      paneRadius: compact ? '0' : 'var(--md-sys-shape-corner-large)', paneOverflow: compact ? 'visible' : 'hidden',
+      gridCols: `repeat(${cols}, minmax(0, 1fr))`,
+      query: st.query, hasQuery: st.query.length > 0,
+      onQuery: e => this.setState({ query: e.target.value }),
+      clearQuery: () => { this.setState({ query: '' }); this.searchRef.current && this.searchRef.current.focus(); },
+      onSearchFocus: () => this.setState({ searchFocus: true }), onSearchBlur: () => this.setState({ searchFocus: false }),
+      searchRef: this.searchRef,
+      searchOutline: searchFocused ? `3px solid ${v('secondary')}` : 'none',
+      chips, podcasts, isEmpty: visible.length === 0,
+      sel: { title: sel.title, author: sel.author, description: sel.description || '' },
+      isLoading: st.status === 'loading', isError: st.status === 'error', isReady: st.status === 'ready',
+      retry: () => { this.load(false); },
+      spinner, episodes, hasNowPlaying: hasNP, np,
+      navBarBg: hasNP ? v('surface-container-high') : v('surface'),
+    };
+  }
+}
+</script>
+</body>
+</html>

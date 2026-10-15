@@ -1,0 +1,19 @@
+node_modules/
+out/
+.ir/
+.baseline/
+fixtures/**/actual/
+dist/
+*.log
+
+# third-party runtime pinned by URL, fetched by tools/vendor.mjs
+.vendor/
+# probe output and any generated code before a real outputDir is configured
+out/
+# reference export: keep the templates and token files, not the capture artifacts
+fixtures/reference/_ds/
+fixtures/reference/screens/*.png
+fixtures/reference/.thumbnail
+
+# codegraph index, local only
+.codegraph/
