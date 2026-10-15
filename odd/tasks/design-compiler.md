@@ -554,16 +554,29 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     T7. **(c)** with the negatives gone the card is 180x264dp in a 180x272 frame -- the dropped margin is
     load-bearing, so "omit and note it" is honest but not free, and replacing the slack is a decision
     spec/04 does not make yet. Evidence kept in the gitignored `out/visual-2026-10-14/`.
+  - **WU8 feat(emit) `16fdac7` -- the surface boolean the human decided, implemented.** spec/02 now names
+    the carrier (`Node.states`, an existing field, so no schema was invented) and spec/04's `Card` row
+    names the modifier (`Modifier.selectable(selected = X, onClick = ...)`, verified in the pinned
+    foundation 1.12.1 sources jar, where `toggleable` also exists). Capture stops discarding the resolved
+    `stateProp` on the surface branch, behind the same `declaresSurface` predicate `pickRole` uses so the
+    two can never disagree about what a surface is. The IR records NO modifier and no pressed/selected
+    distinction: `states` is target-neutral and the target's mapping decides once. RED observed first on
+    both seams (`states: []` against `["selected"]`; no `selectable(` in the emitted file), then 201/201,
+    contract 0, property-map findings 0, zero baseline drift, the three goldens byte-identical to a fresh
+    emit, and `:shared:compileKotlinJvm --rerun` executed with `javap` showing `SelectableKt.selectable`
+    and the boolean in the composable's signature. **The aria-pressed-versus-selected tension is written
+    into spec/04's row, not hidden**: the design wrote pressed-state markup, and selection won because the
+    same export keeps exactly one selection index (`fixtures/reference/Home.dc.html`: `selected: 0`,
+    `selected: x.i === st.selected` behind an `if (x.i !== st.selected)` guard).
   - **Decision, as T5 requires: grow it, do not throw it away.** Three parts are inheritable as they
     stand and re-deriving them would only re-pay the traps: `tools/browser.mjs`'s offline materializer,
     `tools/capture.mjs` (32 tests, the reduction and inheritance rules it had to learn), and
     `emit-compose.mjs`'s single `modifierOf` ordering function with the trap it encodes. Two debts must
     be paid before this becomes T6 rather than a spike that kept working by luck. **Debt 1 was paid on
-    2026-10-14 (`ded3e16`) except for one decision that is not the spike's to make:** spec/02 declares
-    `Node.type` and `Node.callback` and its enum names Column/Button/IconButton/IconToggleButton, so
-    nothing rides in `notes` any more. Still owed by a human: which field carries a clickable SURFACE's
-    boolean, since a surface keeps its role and may legitimately have no callback to attach one to. Debt
-    2 is coupling:
+    2026-10-14 (`ded3e16`) and the decision on it came back and is implemented on 2026-10-15 (`16fdac7`)**:
+    spec/02 declares `Node.type` and `Node.callback`, its enum names Column/Button/IconButton/IconToggleButton,
+    so nothing rides in `notes` any more, and a clickable SURFACE's boolean now travels in `Node.states`
+    with `spec/04`'s `Card` row choosing the modifier. Debt 2 is coupling:
     the emitter calls `captureFrame` and reads an in-memory tree, while T6's contract is an IR on disk --
     so the seam to extract is `emitCompose(ir, tokens, opts)`, which already takes the IR as a parameter
     and is the only reason this is a grow rather than a rewrite. The spike's one-off parts are named and
@@ -578,14 +591,13 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     IconToggleButton, so the "amend spec/02 or narrow spec/04" choice is made and amended. Badge, List,
     Grid, Progress, Spinner, Snackbar and Tooltip remain outside the enum -- spec/04's table keys on them
     and no capture path proposes them, so they stay honest refusals until something measures them.
-    **The open one needs a human:** a clickable SURFACE keeps its surface role (spec/02 and the capture
-    both enforce that), and its boolean is a parameter -- but there is no field to carry it, because
-    `stateProp` only travels inside `node.callback` and a surface with no accessible name has no callback.
-    Do not resolve it by routing the boolean through `callback`: that would force inventing a callback name
-    spec/02 explicitly forbids ("an element that merely looks tappable yields a diagnostic, not a
-    callback"). Candidates are `Node.states`, which is empty on exactly this node today, or a dedicated
-    field; either way the emitter's parameter list has to read it, and the fixture's `selected` is the
-    measured case that shows it is missing.
+    **The open one is CLOSED by a human decision, implemented in `16fdac7`.** A clickable SURFACE keeps its
+    surface role and its boolean is a parameter: the carrier is spec/02's EXISTING `Node.states`, which was
+    empty on exactly this node, and it is deliberately NOT routed through `callback` (spec/02 forbids
+    inventing a callback name, and this card has no accessible name to build one from). The emitter reads
+    `states`, makes the boolean a parameter defaulted from the schema's own default, and emits
+    `Modifier.selectable` on the Card. The remaining schema debt is unchanged and still mechanical: Badge,
+    List, Grid, Progress, Spinner, Snackbar and Tooltip stay outside the enum until something measures them.
   - **Mechanical debt, not a decision:** extract the emitter's seam. `emitCompose(ir, tokens, opts)`
     already takes the IR as a parameter, so pointing it at an IR on disk instead of calling
     `captureFrame` itself is the whole change.

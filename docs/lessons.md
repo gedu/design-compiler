@@ -21,13 +21,18 @@ line here points at a check, a rule row, or a fixture that already exists in the
 2026-10-14 schema-dies-in-dom  discovery  data-props, hint-size and onClick are gone from the live DOM, so intent is read from template text -> tools/capture.mjs readSourceFacts
 2026-10-14 inherited-not-painted  fix  computed color and cursor INHERIT, so every text node became a control with its own paint -> tools/capture.mjs declaresOwn
 2026-10-14 orphan-on-reduce  check  a dropped wrapper used to delete its subtree and emit a 1-node IR with no refusal -> tests/capture.test.mjs
-2026-10-14 ir-has-no-type-field  contract  superseded by measurement and amendment: Node.type and Node.callback are declared fields now, and the enum names Column/Button/IconButton/IconToggleButton. Still open: Badge/List/Grid/Progress/Spinner/Snackbar/Tooltip, and no field carries a clickable SURFACE's boolean -> spec/02-ir.md + odd/tasks T6
+2026-10-14 ir-has-no-type-field  contract  superseded by measurement and amendment: Node.type and Node.callback are declared fields now, and the enum names Column/Button/IconButton/IconToggleButton. Also closed 2026-10-15 (16fdac7): a clickable SURFACE's boolean is carried by Node.states and mapped by spec/04's Card row. Still open: Badge/List/Grid/Progress/Spinner/Snackbar/Tooltip -> spec/02-ir.md + odd/tasks T6
 2026-10-14 guard-outlives-gap  check  a test that pins an ABSENCE must move to what is still absent when the gap closes, never be deleted -> tests/capture.test.mjs (roleEnum seam)
 2026-10-14 note-said-twice  fix  modifierOf ran twice for one node, so its side-effect notes landed in the emitted file twice and the goldens certified it -> tests/emit-compose.test.mjs
 2026-10-14 up-to-date-not-green  check  BUILD SUCCESSFUL with compileKotlinJvm UP-TO-DATE does not prove new bytes compile; --rerun does -> HANDOFF oracle command
 2026-10-14 negative-padding-crashes  fix  a CSS negative margin emitted as Compose padding compiles, matches its golden, and kills the app on launch -> tools/emit-compose.mjs + tests/emit-compose.test.mjs
 2026-10-14 toggle-state-invisible  gap  both values of `subscribed` render pixel-identical, the icon is a constant -> open, T7 (states) owns it
 2026-10-14 citation-can-be-invented  rule  the emitter cited "spec/04 trap 2" for keeping negative margins; spec/04 never uses the word "negative" -> spec/04 trap 2 now says what is true
+2026-10-15 diagnostic-names-the-wrong-loss  fix  a resolved surface boolean was dropped in silence while callback-inferred fired for the missing NAME -> tools/capture.mjs (states carrier) + tests/capture.test.mjs
+2026-10-15 one-fact-one-carrier  rule  a boolean has exactly one home: callback.stateProp for a control, Node.states for a surface; a surface predicate shared by pickRole and the carrier keeps "is a surface" from becoming two rules -> tools/capture.mjs declaresSurface
+2026-10-15 semantics-come-from-runtime-not-attribute  rule  aria-pressed says "pressed" but the export's own renderVals keeps ONE selection index, so Compose gets selectable and spec/04 states the tension instead of hiding it -> spec/04 Card row
+2026-10-15 bytecode-beats-mtime  check  the oracle was proven by javap showing SelectableKt.selectable and the boolean in the signature, not by BUILD SUCCESSFUL or a newer .class -> HANDOFF oracle
+2026-10-15 probe-escaping-is-not-evidence  check  grepping a doc that writes backticks as \` with a raw-backtick pattern reports NO for text that is there; probe with the file's own convention (or node with String.fromCharCode) before believing an absence -> spec/04 verification
 ~~~
 
 ## Open discrepancies

@@ -76,19 +76,26 @@ Two consequences that outrank everything below:
 Status as of 2026-10-14: **T0, T1, T2, T2.5, T3, T3.1 are done, and T5 has its answer written down.**
 The input side is built, and the first emitter exists: \`tools/capture.mjs\` (frame to the spec/02 tree)
 and \`tools/emit-compose.mjs\` (that tree to \`Color.kt\`, \`Theme.kt\` and one composable, in a
-\`ui.generated\` package). \`npm test\` is 198 tests.
+\`ui.generated\` package). \`npm test\` is 201 tests. On 2026-10-15 \`16fdac7\` closed the one decision
+T5 left for a human: a clickable surface's boolean now rides \`Node.states\` and emits
+\`Modifier.selectable\` (see the Debt 1 paragraph below and spec/04's \`Card\` row).
 
 T5's decision is recorded in \`odd/tasks/design-compiler.md\`: **grow it into T6, do not throw it
-away**, with two named debts. **Debt 1 was paid on 2026-10-14 (\`ded3e16\`), except one decision that
-belongs to a human and is still open.** spec/02 now declares \`Node.type\` and \`Node.callback\` as
-fields and its enum names Column, Button, IconButton and IconToggleButton, so type roles no longer ride
-in \`notes\` and the toggle is named for real. What is NOT resolved: a clickable SURFACE keeps its
-surface role (spec/02, and the capture enforces it) and "its boolean is a parameter" is true in prose
-but has no carrier, because \`stateProp\` only travels inside \`node.callback\` and a card with no
-accessible name has no callback to put it in. The \`selected\` boolean resolves correctly and is then
-dropped, with \`callback-inferred\` firing for the wrong reason. T6 needs a field decision for a surface
-boolean; do not smuggle it through \`callback\`, which would force inventing a callback name spec/02
-forbids. Badge, List, Grid, Progress, Spinner, Snackbar and Tooltip are also still outside the enum.
+away**, with two named debts. **Debt 1 was paid on 2026-10-14 (\`ded3e16\`), and the one decision it left
+for a human came back decided and is implemented on 2026-10-15 (\`16fdac7\`).** spec/02 now declares
+\`Node.type\` and \`Node.callback\` as fields and its enum names Column, Button, IconButton and
+IconToggleButton, so type roles no longer ride in \`notes\` and the toggle is named for real. A clickable
+SURFACE keeps its surface role (spec/02, and the capture enforces it), and its boolean is a parameter
+carried by spec/02's EXISTING \`Node.states\` -- not a new field, and not smuggled through \`callback\",
+which would force inventing a callback name spec/02 forbids (this card has no \`data-action\`,
+\`aria-label\` or \`title\` to name one from). Compose receives it as
+\`Modifier.selectable(selected = X, onClick = ...)\` because \`Card\` has no \`selected\` parameter; both
+candidates (\`selectable\`, \`toggleable\`) were read in the pinned foundation 1.12.1 sources jar, and
+\`selectable\` won on the runtime the export itself ships (\`fixtures/reference/Home.dc.html\` keeps ONE
+selection index). **spec/04's \`Card\` row states the tension out loud: the design wrote \`aria-pressed\`,
+which is pressed/toggle-button semantics, and selection still wins on measured behaviour.** The IR records
+neither the modifier nor the distinction -- \`states\` is target-neutral and each target maps it once.
+Badge, List, Grid, Progress, Spinner, Snackbar and Tooltip are also still outside the enum.
 Debt 2 is mechanical: the emitter reads an in-memory tree, and
 T6's contract is an IR on disk, so the seam to extract is \`emitCompose(ir, tokens, opts)\`, which
 already takes the IR as a parameter.
