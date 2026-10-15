@@ -180,7 +180,7 @@ the runtime error verbatim when run with `--file-protocol`:
 
 ```text
 [dc-runtime] sibling fetch for "PodcastCard" threw: ./PodcastCard.dc.html TypeError: Failed to fetch
-    at ensureFetched (file:///Users/eduardo.graciano/Docume
+    at ensureFetched (file://<local>/Docume
   (from: node tools/probe.mjs --frame PodcastCard --file-protocol)
 ```
 

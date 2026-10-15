@@ -15,6 +15,7 @@
 // new remote dependency into a loud failure instead of a subtly different render.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -121,6 +122,18 @@ export async function installOfflineRouter(ctx, { router = createVendorRouter() 
 
 // Open the transport for one board URL: one chromium instance, one vendor router, and materialize()
 // bound to that board. The returned frame record ({ url, loadMs, settled, fontsReady, info,
+// An error message from the browser can carry the absolute path of the page it came from
+// (`file:///Users/<user>/...`), and every artifact built on these strings inherits it: probe.json,
+// probe.log, and docs/probe-report.md, which is COMMITTED. Redact at the one place those strings enter
+// the system, so a future regeneration cannot re-leak what an edited report happens to hide today. The
+// repo already requires this of reports (tests/property-map.test.mjs: "must not leak a local path");
+// this is the other producer meeting the same bar.
+// Longest first: the working directory CONTAINS the home directory, so replacing the shorter path
+// first would eat the prefix and leave the repo root unredacted (measured: `file://<local>/Documents/CK/
+// design-compiler/x`). Order is part of the fix, not cosmetics.
+const LOCAL_PATHS = [homedir(), process.cwd()].filter((p) => p && p !== '/').sort((a, b) => b.length - a.length);
+export const redactLocalPaths = (text) => LOCAL_PATHS.reduce((s, p) => s.split(p).join('<local>'), String(text));
+
 // styleProbe, blocked, errors, shot }) is the shape probe.mjs was written against.
 export async function createMaterializer({ boardUrl, root = HERE, executablePath, viewport = { width: 1600, height: 2000 } } = {}) {
   if (!boardUrl) throw new Error('createMaterializer needs boardUrl (from serveExport().url or a file:// URL)');
@@ -168,8 +181,8 @@ export async function materialize({ browser, boardUrl, frame, theme, offline = t
   const blocked = offline ? await installOfflineRouter(ctx, { router }) : [];
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 160)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 160)); });
+  page.on('pageerror', (e) => errors.push(redactLocalPaths(e.message).slice(0, 160)));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(redactLocalPaths('console: ' + m.text()).slice(0, 160)); });
 
   const qs = new URLSearchParams();
   if (frame) qs.set('frame', frame);

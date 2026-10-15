@@ -16,7 +16,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -74,6 +75,16 @@ test('importing browser.mjs launches no browser, binds no port and writes no fil
   // imported this way (it parses argv, launches chromium and writes out/probe), which is exactly
   // the coupling WU1 had to remove.
   const outDir = join(ROOT, 'out', 'probe');
+  // out/ is gitignored, so a fresh clone (or a cleaned workspace) has no out/probe at all. Listing a
+  // missing directory threw ENOENT and the failure looked like the module misbehaving when the test
+  // itself was the thing assuming state only a probe run creates. The claim under test is "import
+  // writes nothing", so the test provides its OWN baseline: a sentinel file makes the directory
+  // non-empty by construction, which is what the anti-vacuous guard below actually needs. Coupling it
+  // to files a previous `probe` run happened to leave behind meant the guard passed by accident on a
+  // developer machine and failed on a clean one -- both wrong verdicts.
+  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+  const sentinel = join(outDir, 'import-guard.sentinel');
+  writeFileSync(sentinel, 'baseline for the no-write-on-import check\n');
   const script = `
     import { findChromium, materialize, createVendorRouter } from ${JSON.stringify(MODULE_URL)};
     import { readdirSync } from 'node:fs';
@@ -95,7 +106,8 @@ test('importing browser.mjs launches no browser, binds no port and writes no fil
   assert.equal(out.typeOK, true);
   assert.ok(out.ms < 5000, `import must not launch anything, took ${out.ms}ms`);
   assert.equal(out.sameDir, true, 'importing the module must not write into out/probe');
-  assert.ok(out.before > 0);
+  rmSync(sentinel, { force: true });
+  assert.ok(out.before > 0, 'the baseline must be non-empty or sameDir proves nothing');
 });
 
 test('findChromium locates a binary or reports none (honors CHROME=)', () => {
@@ -122,6 +134,30 @@ test('findChromium locates a binary or reports none (honors CHROME=)', () => {
     process.stdout.write(String(findChromium()));
   `], { encoding: 'utf8', env: { ...process.env, CHROME: '/nonexistent/chrome', HOME: mkdtempSync(join(tmpdir(), 'nohome-')) } });
   assert.equal(none.stdout.trim(), 'null');
+});
+
+test('redactLocalPaths removes the two paths a browser error can carry', async () => {
+  const { redactLocalPaths } = await import(MODULE_URL);
+  const home = homedir();
+  const leaked = `at ensureFetched (file://${home}/Documents/CK/design-compiler/fixtures/x)`;
+  const red = redactLocalPaths(leaked);
+  // Order matters and this is the order's test: the repo path CONTAINS the home path, so replacing the
+  // home first would consume the prefix and leave the repo root visible.
+  assert.ok(!red.includes(home), `the home path survived redaction: ${red}`);
+  assert.ok(!red.includes(ROOT), `the repo path survived redaction: ${red}`);
+  assert.match(red, /ensureFetched/, 'redaction removes the path, never the evidence the report needs');
+});
+
+test('every page-error string is redacted where it enters the system, not in the report', () => {
+  // The class check. Pinning one string in docs/probe-report.md would be fixed once and leak again on
+  // the next regeneration, because the leak lives in the transport's error handlers. Every value pushed
+  // into `errors` must pass through redactLocalPaths at the push site.
+  const src = readFileSync(MODULE, 'utf8');
+  const pushes = [...src.matchAll(/errors\.push\(([^;]*?)\);/g)].map((m) => m[1]);
+  assert.ok(pushes.length >= 2, `expected the two page listeners to be here, found ${pushes.length}`);
+  for (const p of pushes) {
+    assert.ok(/redactLocalPaths\(/.test(p), `an error reaches the record unredacted: errors.push(${p})`);
+  }
 });
 
 // ---------- 2. the vendor map comes only from the lock ----------
