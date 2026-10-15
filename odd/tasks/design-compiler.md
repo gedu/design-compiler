@@ -568,6 +568,25 @@ Vertical slices, each verifiable alone. Frontier: any task whose blockers are do
     into spec/04's row, not hidden**: the design wrote pressed-state markup, and selection won because the
     same export keeps exactly one selection index (`fixtures/reference/Home.dc.html`: `selected: 0`,
     `selected: x.i === st.selected` behind an `if (x.i !== st.selected)` guard).
+  - **WU9 fix(emit) `fe835c8` -- the same unit's own gap, found by probing the case it did not cover.**
+    Give the card an `aria-label` and spec/02's callback rule legitimately builds a callback, so the
+    boolean rides `callback.stateProp` and `states` stays empty (measured: `states []`, callback
+    `{name, stateProp: "selected"}`). The previous commit keyed the modifier to WHICH FIELD arrived, so
+    that half emitted `selected: Boolean` beside `clickable(onClick = onSelect)` -- a parameter nothing
+    reads, compiling and looking finished. The rule is now asked of the NODE (`is this a surface and does
+    it carry a boolean`), binds wherever that node is emitted, and the emitter refuses any parameter the
+    body does not read. **Two of my own mistakes were caught by measurement, not by reading the code:**
+    a plain name search passed with the binding deliberately broken (the name appears as an ARGUMENT NAME
+    in `selectable(selected = false`), so the check now requires a use position and was verified by
+    mutation (broken -> refuse exit 3 naming the parameter; clean -> exit 0); and `modifier` is excluded
+    BY NAME because the emitter never chains the parameter today. 202/202, goldens byte-identical, all
+    other checks unchanged, oracle re-run green with `--rerun`.
+  - **New debt named here, not smuggled into WU9 (owner: a human, or T6):** the generated component takes
+    `modifier: Modifier = Modifier` and every emitted root chain starts from `Modifier`, never from the
+    parameter (the golden says `Modifier.fillMaxWidth()`). A caller passing `Modifier.padding(...)` is
+    therefore silently ignored. Chaining the parameter is the correct Compose pattern, but it rewrites
+    every emitted file and its golden, so it needs its own work unit and decision, not a loosened check.
+    It is the one parameter the class check above excludes, and that exclusion is written in the code.
   - **Decision, as T5 requires: grow it, do not throw it away.** Three parts are inheritable as they
     stand and re-deriving them would only re-pay the traps: `tools/browser.mjs`'s offline materializer,
     `tools/capture.mjs` (32 tests, the reduction and inheritance rules it had to learn), and

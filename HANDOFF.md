@@ -76,9 +76,14 @@ Two consequences that outrank everything below:
 Status as of 2026-10-14: **T0, T1, T2, T2.5, T3, T3.1 are done, and T5 has its answer written down.**
 The input side is built, and the first emitter exists: \`tools/capture.mjs\` (frame to the spec/02 tree)
 and \`tools/emit-compose.mjs\` (that tree to \`Color.kt\`, \`Theme.kt\` and one composable, in a
-\`ui.generated\` package). \`npm test\` is 201 tests. On 2026-10-15 \`16fdac7\` closed the one decision
+\`ui.generated\` package). \`npm test\` is 202 tests. On 2026-10-15 \`16fdac7\` closed the one decision
 T5 left for a human: a clickable surface's boolean now rides \`Node.states\` and emits
-\`Modifier.selectable\` (see the Debt 1 paragraph below and spec/04's \`Card\` row).
+\`Modifier.selectable\` (see the Debt 1 paragraph below and spec/04's \`Card\` row). \`fe835c8\` fixed the
+gap that commit left: a surface that HAS an accessible name carries the same boolean in
+\`callback.stateProp\`, so binding the modifier to the FIELD emitted an unread \`selected: Boolean\`; the
+rule now asks the ROLE, and the emitter refuses any parameter the body does not read. That check is
+verified by mutation, not by reading it, and it excludes \`modifier\` by name for a reason now recorded
+as its own debt.
 
 T5's decision is recorded in \`odd/tasks/design-compiler.md\`: **grow it into T6, do not throw it
 away**, with two named debts. **Debt 1 was paid on 2026-10-14 (\`ded3e16\`), and the one decision it left

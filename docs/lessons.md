@@ -33,6 +33,8 @@ line here points at a check, a rule row, or a fixture that already exists in the
 2026-10-15 semantics-come-from-runtime-not-attribute  rule  aria-pressed says "pressed" but the export's own renderVals keeps ONE selection index, so Compose gets selectable and spec/04 states the tension instead of hiding it -> spec/04 Card row
 2026-10-15 bytecode-beats-mtime  check  the oracle was proven by javap showing SelectableKt.selectable and the boolean in the signature, not by BUILD SUCCESSFUL or a newer .class -> HANDOFF oracle
 2026-10-15 probe-escaping-is-not-evidence  check  grepping a doc that writes backticks as \` with a raw-backtick pattern reports NO for text that is there; probe with the file's own convention (or node with String.fromCharCode) before believing an absence -> spec/04 verification
+2026-10-15 carrier-is-not-the-rule  fix  a named surface carries its boolean in callback.stateProp, so keying Modifier.selectable to Node.states emitted `selected: Boolean` beside clickable() -- read the ROLE, not the field -> tools/emit-compose.mjs + tests/emit-compose.test.mjs
+2026-10-15 decorative-class-check  check  the first "no unread parameter" check passed with the binding deliberately broken, because `selectable(selected = false` contains the name as an ARGUMENT NAME; use positions only, verified by mutation -> tools/emit-compose.mjs
 ~~~
 
 ## Open discrepancies
