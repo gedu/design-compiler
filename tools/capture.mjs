@@ -620,11 +620,28 @@ function emitNode(id, d, childIds, ownText, ctx) {
     } else {
       push('callback-inferred', 'warn', 'a control carries no data-action, aria-label or title to name the callback from', `${d.tag} ${id}`);
     }
+    // A clickable SURFACE keeps its surface role (spec/02), so its boolean is nobody's `checked`, and
+    // when the surface has no accessible name there is no callback object for `stateProp` to live
+    // inside. Measured before this branch existed: resolveToggle had correctly answered "selected"
+    // from three agreeing sources and the answer was discarded here -- the IR carried states: [] and
+    // the only trace was callback-inferred, which names the missing NAME, not the lost boolean. spec/02
+    // names `states` as the carrier. One fact, one carrier: a control that DID get a callback keeps the
+    // boolean there and nowhere else, and a non-surface control keeps the callback-or-diagnostic rule,
+    // because spec/02 gives it no surface to live in.
+    if (!named && declaresSurface(c) && toggle.stateProp && !node.states.includes(toggle.stateProp)) {
+      node.states.push(toggle.stateProp);
+    }
   }
   if (glyphFont && !icon) push('icon-unnamed', 'warn', 'a glyph-font run carries no data-icon, so no name can be looked up in the target icon set', d.tag);
   if (d.runtime.length) notes.push(`runtime-carries:${d.runtime.join('+')}`);
   return node;
 }
+
+// The one test for "this element is a declared M3 surface": data-elevation or data-token. pickRole
+// needs it to keep a surface's role against `role="button"`, and buildNode needs it to decide whether
+// a resolved boolean is a SURFACE boolean (spec/02's states carrier) or a control's. Reading it twice
+// in two ways is how one rule becomes two.
+const declaresSurface = (c) => Boolean(c && (c['data-elevation'] || c['data-token']));
 
 // spec/02 "A toggle is a different component than a button", implemented as three facts from three
 // sources that all have to agree. `state` is the live element's aria attribute; `stateProp` is the
@@ -695,7 +712,10 @@ function pickRole(id, d, ctx) {
   // root carries role="button" AND data-elevation/data-token, and button-first classified it
   // IconButton -- losing Card, which is where spec/04 puts containerColor, shape and tonalElevation.
   // A clickable card is a Card with an onClick plus the callback this capture already records.
-  if (c['data-elevation'] || c['data-token']) {
+  // spec/02: a declared M3 surface outranks being clickable, and the same test decides whether a
+  // clickable node's resolved boolean belongs in `states`. Two places must never disagree about what
+  // a surface is, so both call this.
+  if (declaresSurface(c)) {
     if (clickable) notes.push('control:clickable');
     return roleEnum.includes('Card') ? 'Card' : 'Box';
   }

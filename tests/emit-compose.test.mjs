@@ -319,17 +319,43 @@ test('callbacks: exactly the two the design wires, in the order the schema decla
     // spec/02: on every target the boolean stateProp becomes a parameter of the component. It sits
     // with the data it reflects, not with the callbacks -- the position authority is the hand-written
     // card this one is compared against: (podcast, subscribed, onSubscribeClick, modifier).
+    // Both booleans follow the DOM order the spec/04 rule states, so the card's own `selected` (the
+    // root is visited first) precedes the toggle's `subscribed`.
+    'selected: Boolean',
     'subscribed: Boolean',
     'onSelect: () -> Unit',
     'onToggle: () -> Unit',
     'modifier: Modifier = Modifier',
   ]);
-  assert.match(src, /clickable\(onClick = onSelect\)/);
+  assert.doesNotMatch(src, /clickable\(onClick = onSelect\)/, 'a selectable surface does not also carry a plain click: one click path per node');
   // The toggle's click belongs to the WIDGET now. IconToggleButton takes onCheckedChange, so emitting
   // clickable(onClick = onToggle) as well would compile and fire the callback twice.
   assert.match(src, /onCheckedChange = \{ onToggle\(\) \}/, 'the widget owns the click');
   assert.match(src, /checked = subscribed/, 'the boolean the design declared is bound, not hardcoded');
   assert.doesNotMatch(src, /clickable\(onClick = onToggle\)/, 'one click path per control, never two');
+});
+
+test('a clickable SURFACE gets selection semantics, and the boolean that drives it is a parameter', () => {
+  // The gap this pins: spec/02 says a clickable surface "keeps its surface role... its boolean is a
+  // parameter, not a toggle component", and the boolean was resolved by the capture and then DROPPED,
+  // because stateProp travelled only inside node.callback and this card has no accessible name to build
+  // one from. Carrier is spec/02's existing Node.states (no new field), and the target chose
+  // Modifier.selectable: measured in the sources jar of the pinned foundation 1.12.1, its KDoc is the
+  // mutually exclusive set, and the reference board keeps exactly one card selected at a time
+  // (fixtures/reference/Home.dc.html: `selected: x.i === st.selected`). spec/04's Card row carries the
+  // pressed-vs-selected tension this emits, because the design wrote aria-pressed on the same element.
+  const raw = realEmission().files['PodcastCard.kt'];
+  const src = code(raw);
+  assert.match(src, /selectable\(selected = selected, onClick = onSelect\)/, 'the surface boolean rides the modifier, since Card has no selected parameter');
+  assert.doesNotMatch(src, /clickable\(onClick = onSelect\)/, 'one click path per node, never selectable plus clickable');
+  assert.doesNotMatch(src, /toggleable/, 'the reference runtime keeps ONE selection, so toggleable would be the wrong semantics');
+  // The import is derived from the body like every other, and this one lives in foundation.selection,
+  // not in material3 -- an import the emitter forgets is an unresolved-reference error, not a warning.
+  assert.match(raw, /^import androidx\.compose\.foundation\.selection\.selectable$/m, 'the selectable import is collected');
+  // And the file says where the boolean came from, so a reader can check the carrier instead of trusting
+  // the emitter: naming Node.states is what makes the IR-to-Kotlin step auditable.
+  assert.match(raw, /Node\.states "selected"/, 'the file names the carrier it read, not only what it emitted');
+  assert.match(raw, /spec\/04/, 'and points at the row that decided selectable over toggleable');
 });
 
 test('an emission decision is said once per node, never twice', () => {

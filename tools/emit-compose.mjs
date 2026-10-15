@@ -73,7 +73,9 @@ export const KNOWN_ROLES = ['Card', 'Column', 'Row', 'Box', 'Text', 'Icon', 'Ico
 // `fill` sits before `aspect` because aspectRatio resolves against the width it is handed: the
 // hand-written CategoryCover writes `fillMaxWidth().aspectRatio(1f)` and the reverse order yields a
 // different box.
-export const MODIFIER_ORDER = ['size', 'weight', 'fill', 'aspect', 'margin', 'background', 'border', 'clip', 'padding', 'align', 'clickable'];
+// `selectable` shares clickable's terminal slot family: it IS this node's click path (spec/04's Card
+// row), and a node that gets one never also gets the other, or the callback fires twice.
+export const MODIFIER_ORDER = ['size', 'weight', 'fill', 'aspect', 'margin', 'background', 'border', 'clip', 'padding', 'align', 'clickable', 'selectable'];
 
 // spec/04 trap 8: snake_case becomes PascalCase. `bookmark_add` -> BookmarkAdd.
 export function kotlinIconName(snake) {
@@ -204,7 +206,7 @@ function boxAlign(placeSelf) {
 
 // spec/04 trap 3: one function builds every modifier chain, in one order.
 function modifierOf(n, ctx, opts) {
-  const parts = { size: [], weight: [], fill: [], aspect: [], margin: [], background: [], border: [], clip: [], padding: [], align: [], clickable: [] };
+  const parts = { size: [], weight: [], fill: [], aspect: [], margin: [], background: [], border: [], clip: [], padding: [], align: [], clickable: [], selectable: [] };
   const paint = n.paint || {};
   const size = n.size || {};
   const layout = n.layout || {};
@@ -300,7 +302,19 @@ function modifierOf(n, ctx, opts) {
     if (a) parts.padding.push(`padding(${a})`);
   }
   if (opts.align) parts.align.push(`align(Alignment.${opts.align})`);
-  if (opts.clickable) parts.clickable.push(`clickable(onClick = ${opts.clickable})`);
+  // A surface that carries a boolean (spec/02's Node.states) takes selectable, which owns the click:
+  // emitting clickable as well compiles and fires the callback twice, the same defect the widget roles
+  // already refuse. A boolean with no paired callback name is a refusal, not a dead parameter: an
+  // unread `selected` argument in a signature looks finished and is not.
+  if (opts.selection) {
+    if (!opts.clickable) {
+      ctx.refuse(`${n.id}: carries the surface boolean "${opts.selection}" but no callback name was paired to its click hole, so selectable() would have no onClick`);
+    } else {
+      parts.selectable.push(`selectable(selected = ${opts.selection}, onClick = ${opts.clickable})`);
+    }
+  } else if (opts.clickable) {
+    parts.clickable.push(`clickable(onClick = ${opts.clickable})`);
+  }
 
   const chain = [];
   for (const key of MODIFIER_ORDER) chain.push(...parts[key].map((p) => `.${p}`));
@@ -379,7 +393,14 @@ function emitNode(id, ctx, opts) {
       // container, so a background() on top of it paints the same role twice. The hand-written card
       // is the authority -- it passes colors = CardDefaults.cardColors(containerColor = ...) and no
       // background() -- and an extra background() also defeats the shape clipping Card does itself.
-      const cardMod = modOf({ isText: false, paddingHandledElsewhere: true, backgroundHandledByColors: true });
+      // The boolean a clickable surface carries is spec/02's Node.states (measured: ["selected"] on this
+      // fixture). Card has no `selected` parameter to take it, so it rides the modifier -- spec/04's Card
+      // row decides Modifier.selectable and names the aria-pressed tension there; this file follows that
+      // row and records the decision instead of re-deciding it.
+      const cardMod = modOf({
+        isText: false, paddingHandledElsewhere: true, backgroundHandledByColors: true,
+        selection: ctx.selection.get(id) ?? null,
+      });
       L.push(`${ind}Card(`);
       L.push(`${ind}    modifier = ${cardMod || 'Modifier'},`);
       if (shapeExpr(paint.radius)) L.push(`${ind}    shape = ${shapeExpr(paint.radius)},`);
@@ -701,6 +722,9 @@ function collectImports(body) {
   add(/\.clip\(/, 'androidx.compose.ui.draw.clip');
   add(/\.border\(/, 'androidx.compose.foundation.border');
   add(/\.clickable\(/, 'androidx.compose.foundation.clickable');
+  // selectable lives in foundation.selection, not in material3, and it is NOT the same import as
+  // clickable: forgetting it is an unresolved-reference error at the use site, not a warning.
+  add(/\.selectable\(/, 'androidx.compose.foundation.selection.selectable');
   add(/TextOverflow\./, 'androidx.compose.ui.text.style.TextOverflow');
   add(/MaterialTheme\./, 'androidx.compose.material3.MaterialTheme');
   // Each icon reference imports the exact set the design's FILL axis chose.
@@ -743,7 +767,10 @@ export function emitCompose(ir, tokens, opts = {}) {
   if (!rootId) return { files: {}, refusals: [`no node carries data-component="${want}"`], errorDiagnostics: [], notes };
 
   const ctx = {
-    nodes, nameFor: new Map(), notes, refusals, stateTodos: [],
+    // id -> the camelCase surface boolean this node carries (spec/02's Node.states). Filled once, next
+    // to the parameter collection that reads the same facts, so the signature and the modifier cannot
+    // disagree about which node is a selected surface.
+    nodes, nameFor: new Map(), selection: new Map(), notes, refusals, stateTodos: [],
     note: (m) => notes.push(m),
     refuse: (m) => { if (!refusals.includes(m)) refusals.push(m); },
     // spec/02 Node.type is a field now. It used to ride in `notes` as a structured string, and the two
@@ -870,14 +897,26 @@ export function emitCompose(ir, tokens, opts = {}) {
   // is refused rather than assumed, because the alternative is emitting `checked =` with no parameter.
   const boolDefaults = new Map((cb.boolProps ?? []).map((b) => [b.name, b.default]));
   const boolParams = [];
+  // spec/02: a clickable SURFACE's boolean lives in Node.states, because the surface keeps its role and
+  // may have no callback to carry one. The schema is the only thing that TYPES a value, so a states name
+  // becomes a boolean parameter only when data-props declares it tsType boolean -- a data-variant with no
+  // boolean behind it stays a variant, and inventing a Boolean for it is the invention invariant 2 forbids.
+  const surfaceBool = (n) => (n.states || []).find((s) => boolDefaults.has(s)) ?? null;
   (function collectBools(id) {
     const n = nodes[id];
-    const prop = n.callback?.stateProp;
-    if (prop && !boolParams.some((b) => b.name === camel(prop))) {
+    // DOM order, root first: the card's own `selected` precedes the toggle's `subscribed`, which is the
+    // order spec/04 states for a parameter list and the order the hand-written card keeps.
+    for (const [prop, isSurface] of [[n.callback?.stateProp, false], [surfaceBool(n), true]]) {
+      if (!prop || boolParams.some((b) => b.name === camel(prop))) continue;
       if (!boolDefaults.has(prop)) {
         ctx.refuse(`${n.id}: toggle boolean "${prop}" is not declared in the data-props schema, so it has no default to emit`);
       } else {
         boolParams.push({ name: camel(prop), kotlinType: 'Boolean', sample: boolDefaults.get(prop) });
+        if (isSurface) {
+          ctx.selection.set(id, camel(prop));
+          const click = ctx.nameFor.get(id) ?? null;
+          ctx.note(`${n.id}: surface boolean read from Node.states ${JSON.stringify(prop)} (spec/02) becomes the parameter "${camel(prop)}: Boolean" and Modifier.selectable(selected = ${camel(prop)}, onClick = ${click ?? 'UNPAIRED'}) on the surface -- spec/04's Card row chose that modifier and names the aria-pressed tension; this file follows the row and records it`);
+        }
       }
     }
     (n.children || []).forEach(collectBools);

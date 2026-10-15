@@ -1,7 +1,6 @@
 package com.callstack.minijetcaster.ui.generated
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.BookmarkAdd
@@ -42,13 +42,14 @@ fun PodcastCard(
     category: String,
     title: String,
     author: String,
+    selected: Boolean,
     subscribed: Boolean,
     onSelect: () -> Unit,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onSelect),
+        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onSelect),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         // data-elevation 1, on the pinned ladder. spec/04 trap 4 asks for tonal;
@@ -131,6 +132,7 @@ private object FakeData {
     const val Category = "Tech"
     const val Title = "Compiled Weekly"
     const val Author = "Ada Moreno"
+    const val Selected = false
     const val Subscribed = false
 }
 
@@ -138,7 +140,7 @@ private object FakeData {
 @Composable
 private fun PodcastCardPreview() {
     GeneratedTheme {
-        PodcastCard(category = FakeData.Category, title = FakeData.Title, author = FakeData.Author, subscribed = FakeData.Subscribed, onSelect = {}, onToggle = {})
+        PodcastCard(category = FakeData.Category, title = FakeData.Title, author = FakeData.Author, selected = FakeData.Selected, subscribed = FakeData.Subscribed, onSelect = {}, onToggle = {})
     }
 }
 
@@ -158,6 +160,7 @@ private fun PodcastCardPreview() {
 // Emission decisions taken from the IR, so the reading is checkable:
 //   n:podcast-card-subscribe-toggle: aria-pressed driven by boolean "subscribed" becomes a checked parameter (spec/02)
 //   n:node-0-0-0-2-1-0: declares CircleShape but paints no background in the captured state; nothing emitted to round -- the shape belongs to a hover/selected state (spec/02 states), which is a TODO, not a guess
+//   n:podcast-card: surface boolean read from Node.states "selected" (spec/02) becomes the parameter "selected: Boolean" and Modifier.selectable(selected = selected, onClick = onSelect) on the surface -- spec/04's Card row chose that modifier and names the aria-pressed tension; this file follows the row and records it
 //   n:podcast-card-cover: aspectRatio(1f) kept and the measured height 160 dropped (spec/04 trap 7)
 //   n:node-0-0-0-2: CSS margin -4px top is NOT emitted -- Compose rejects negative padding (measured on-device: IllegalArgumentException "Padding must be non-negative" from PaddingElement, the app dies on launch). The edge is dropped, not guessed, so the box is smaller than the design drew (measured on this fixture: the card renders 264dp inside a 272dp frame). How to cancel that line-height slack WITHOUT a negative padding is a mapping decision spec/04 does not make yet: TODO for a human, never a value invented here.
 //   n:podcast-card-subscribe-toggle: IconToggleButton already implies the authored 48dp target (pinned KDoc), so no size is emitted (spec/04)

@@ -211,6 +211,49 @@ test('a declared surface outranks being clickable: the card is a Card, not a but
   assert.ok(card.notes.includes('control:clickable'), 'and the clickability is still said, not dropped');
 });
 
+test('a clickable SURFACE keeps its boolean: Node.states is where it lives', async () => {
+  // spec/02: "A clickable surface is the exception and keeps its surface role... Its boolean is a
+  // parameter, not a toggle component." The capture resolved that boolean and then dropped it, because
+  // stateProp only travelled inside node.callback and a card with no aria-label, no title and no
+  // data-action builds no callback (spec/02 forbids inventing a name). Measured before the fix: this
+  // node came back with states: [] while the template drives its aria-pressed with {{ selected }}.
+  const r = await theCapture();
+  const card = r.ir.nodes['n:podcast-card'];
+  assert.equal(card.role, 'Card', 'the surface role still outranks the click');
+  assert.equal(card.callback, undefined, 'and it still has NO callback: the boolean never rides through one');
+  assert.deepEqual(card.states, ['selected'],
+    'the boolean the design declared reaches the IR, in the field spec/02 already defines');
+  // A surface boolean is a STATE, not a control: the toggle widget rule must not fire here or the card
+  // becomes an IconToggleButton again and loses containerColor, shape and elevation.
+  assert.ok(!card.notes.some((x) => x.startsWith('role-intended:')), 'no toggle widget is proposed for a surface');
+  assert.ok(!r.diagnostics.some((d) => d.code === 'toggle-widget-unresolved' && d.node === 'n:podcast-card'),
+    'and the surface is not reported as an unresolved toggle widget');
+  // The subscribe control keeps carrying ITS boolean the old way: this change must not move it.
+  const toggle = r.ir.nodes['n:podcast-card-subscribe-toggle'];
+  assert.equal(toggle.callback.stateProp, 'subscribed', 'a control boolean still rides callback.stateProp');
+  assert.deepEqual(toggle.states, [], 'and a control state is not duplicated into states');
+});
+
+test('a surface with an undeclared boolean state names nothing and says so', async () => {
+  // refuse-before-inventing, in the direction that matters here: aria-pressed alone is not a prop. The
+  // hole must resolve to a data-props tsType boolean, or states stays empty -- otherwise a literal
+  // aria-pressed="true" would materialize a parameter nobody declared.
+  const d = mkdtempSync(join(tmpdir(), 'surface-'));
+  cpSync(FIXTURE, d, { recursive: true });
+  const target = join(d, 'PodcastCard.dc.html');
+  const before = readFileSync(target, 'utf8');
+  const after = before.replace('aria-pressed="{{ selected }}"', 'aria-pressed="true"');
+  assert.notEqual(after, before, 'the mutation did not apply -- an empty states from unmutated input proves nothing');
+  writeFileSync(target, after);
+  const r = await cap.captureFrame({ dir: d, frame: 'PodcastCard.compact', settleTimeoutMs: 8000 });
+  rm(d);
+  assert.equal(r.ok, true, `refusals: ${r.refusals?.join('; ')}`);
+  const card = r.ir.nodes['n:podcast-card'];
+  assert.deepEqual(card.states, [], 'a hardcoded aria-pressed names no prop, so it becomes no state');
+  assert.ok(card.notes.some((x) => x.startsWith('toggle-literal:')),
+    'and the reason is written down: the design has a hardcoded toggle, not a boolean parameter');
+});
+
 test('where spec/04 wants a role spec/02 does not list, the IR says so instead of inventing one', async () => {
   const r = await theCapture();
   const toggle = r.ir.nodes['n:podcast-card-subscribe-toggle'];
