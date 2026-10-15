@@ -138,11 +138,14 @@ test('findChromium locates a binary or reports none (honors CHROME=)', () => {
 
 test('redactLocalPaths removes the two paths a browser error can carry', async () => {
   const { redactLocalPaths } = await import(MODULE_URL);
+  // Both real local paths go into the sample, built from the values the redactor actually holds. A
+  // hardcoded path would make one of the two assertions vacuous: on a machine where the repo lives
+  // somewhere else, asserting the leaked string lacks ROOT proves nothing about ROOT being redacted.
   const home = homedir();
-  const leaked = `at ensureFetched (file://${home}/Documents/CK/design-compiler/fixtures/x)`;
+  const leaked = `at ensureFetched (file://${home}/sub/x) | served from ${ROOT}/fixtures/y`;
   const red = redactLocalPaths(leaked);
-  // Order matters and this is the order's test: the repo path CONTAINS the home path, so replacing the
-  // home first would consume the prefix and leave the repo root visible.
+  // Order matters and this is the order's test: ROOT CONTAINS home on this machine, so replacing the
+  // shorter path first would consume the prefix and leave the repo root visible.
   assert.ok(!red.includes(home), `the home path survived redaction: ${red}`);
   assert.ok(!red.includes(ROOT), `the repo path survived redaction: ${red}`);
   assert.match(red, /ensureFetched/, 'redaction removes the path, never the evidence the report needs');
