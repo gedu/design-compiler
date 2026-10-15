@@ -358,6 +358,27 @@ test('a clickable SURFACE gets selection semantics, and the boolean that drives 
   assert.match(raw, /spec\/04/, 'and points at the row that decided selectable over toggleable');
 });
 
+test('a NAMED clickable surface still gets selectable: no unread boolean parameter', () => {
+  // The other half of the same fact, measured rather than reasoned. A surface CAN have an accessible
+  // name, and then spec/02's callback rule legitimately builds a callback, so the boolean rides
+  // callback.stateProp instead of Node.states (measured on a mutated copy: states [] , callback
+  // {name, stateProp: "selected"}). If the emitter only reads states for the modifier, it emits
+  // `selected: Boolean` in the signature and clickable() on the Card -- a parameter nothing reads,
+  // which is exactly the "looks finished and is not" shape this repo refuses. The modifier decision
+  // is "this node is a surface and carries a boolean", whatever field holds it.
+  const r = emit({
+    to: mkdtempSync(join(tmpdir(), 'named-surface-')),
+    mutate: (s) => s.replace('aria-pressed="{{ selected }}"', 'aria-label="Episode selection" aria-pressed="{{ selected }}"'),
+  });
+  assert.equal(r.code, 0, r.out);
+  const src = code(r.files['PodcastCard.kt']);
+  assert.match(src, /selectable\(selected = selected, onClick = onSelect\)/, 'a named surface keeps selection semantics too');
+  assert.doesNotMatch(src, /clickable\(onClick = onSelect\)/, 'never clickable alongside the boolean it ignores');
+  // Guard: the boolean reached the signature through the callback here, so the parameter and the
+  // modifier must agree even though states stayed empty -- pin the agreement, not the carrier.
+  assert.match(src, /selected: Boolean/, 'the parameter is still there, and now it is read');
+});
+
 test('an emission decision is said once per node, never twice', () => {
   // spec/10: this bug became a check, not a paragraph. Building the modifier once per node at the top
   // of emitNode AND again inside the cases that emit their own (Card, IconButton, IconToggleButton)

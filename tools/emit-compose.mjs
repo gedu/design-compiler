@@ -339,7 +339,10 @@ function emitNode(id, ctx, opts) {
   // effect (a negative margin, a dropped aspectRatio height, an unrepresentable width) landed in the
   // file TWICE, which the goldens then certified. One emitted modifier, one build, one set of notes.
   const modOf = (over = {}) => modifierOf(n, ctx, {
-    ...opts, clickable: cb, isText: n.role === 'Text', ...over,
+    // A surface boolean is bound wherever this node is emitted, not only in the Card case: the same
+    // surface role can fall back to Box when spec/02's enum lacks Card, and a boolean that reaches the
+    // signature must be read by the modifier or refused.
+    ...opts, clickable: cb, selection: ctx.selection.get(id) ?? null, isText: n.role === 'Text', ...over,
   });
   const modArgOf = (over) => { const m = modOf(over); return m || 'Modifier'; };
 
@@ -397,10 +400,7 @@ function emitNode(id, ctx, opts) {
       // fixture). Card has no `selected` parameter to take it, so it rides the modifier -- spec/04's Card
       // row decides Modifier.selectable and names the aria-pressed tension there; this file follows that
       // row and records the decision instead of re-deciding it.
-      const cardMod = modOf({
-        isText: false, paddingHandledElsewhere: true, backgroundHandledByColors: true,
-        selection: ctx.selection.get(id) ?? null,
-      });
+      const cardMod = modOf({ isText: false, paddingHandledElsewhere: true, backgroundHandledByColors: true });
       L.push(`${ind}Card(`);
       L.push(`${ind}    modifier = ${cardMod || 'Modifier'},`);
       if (shapeExpr(paint.radius)) L.push(`${ind}    shape = ${shapeExpr(paint.radius)},`);
@@ -633,6 +633,25 @@ function componentFile({ pkg, typeName, params, boolParams, cbParams, rootId, ct
   // needs the body as one text, so it is joined once here at the boundary.
   const bodyLines = emitNode(rootId, ctx, { indent: 1, isFrameRoot: true, scope: null });
   const body = bodyLines.join('\n');
+  // No parameter may be emitted unread. The test is "appears in a USE position", not "the name occurs":
+  // `selectable(selected = false` contains the word `selected` as an ARGUMENT NAME and reads nothing,
+  // so a plain name search is a decorative check -- measured, it passed while the binding was broken.
+  // Use positions are `= X` (an argument value) or `(X(` / `{ X(` (a call), the only shapes this emitter
+  // produces when a parameter is genuinely wired. When a legitimate new use site appears, add the form
+  // HERE with a test; do not loosen it to a name search.
+  // `modifier` is EXCLUDED on purpose and measured so: the emitter starts every root modifier from
+  // `Modifier`, never from the parameter (the golden says `Modifier.fillMaxWidth()`, not
+  // `modifier.fillMaxWidth()`). Chaining it is the correct Compose pattern and a real open decision --
+  // a consumer passing Modifier.padding would be ignored -- but it changes every emitted file and its
+  // golden, so it belongs to its own work unit, not smuggled into this one. Excluded BY NAME in a
+  // comment that says it is a debt, never by loosening the match for everything.
+  for (const p of [...params, ...boolParams, ...cbParams]) {
+    if (p.name === 'modifier') continue;
+    const used = new RegExp(`=\\s*${p.name}\\b`).test(body) || new RegExp(`[{(]\\s*${p.name}\\s*\\(`).test(body);
+    if (!used) {
+      ctx.refuse(`parameter "${p.name}" is emitted but nothing in the body reads it: refusing to write a component whose API pretends to be wired`);
+    }
+  }
   const imports = collectImports(body);
   // Position authority is the hand-written card this one is compared against: (podcast, subscribed,
   // onSubscribeClick, modifier). A toggle's boolean sits with the data it reflects, not with the
@@ -897,25 +916,37 @@ export function emitCompose(ir, tokens, opts = {}) {
   // is refused rather than assumed, because the alternative is emitting `checked =` with no parameter.
   const boolDefaults = new Map((cb.boolProps ?? []).map((b) => [b.name, b.default]));
   const boolParams = [];
-  // spec/02: a clickable SURFACE's boolean lives in Node.states, because the surface keeps its role and
-  // may have no callback to carry one. The schema is the only thing that TYPES a value, so a states name
-  // becomes a boolean parameter only when data-props declares it tsType boolean -- a data-variant with no
-  // boolean behind it stays a variant, and inventing a Boolean for it is the invention invariant 2 forbids.
+  // spec/02: a clickable SURFACE's boolean lives in Node.states when the surface has no accessible
+  // name, and in callback.stateProp when it does -- ONE fact (this surface carries a boolean) with two
+  // carriers, so the emitter must ask the ROLE, never which field arrived. Keying the modifier to the
+  // field is the defect this comment replaces: measured on a named surface, it emitted
+  // `selected: Boolean` beside `clickable(onClick = onSelect)`, a parameter nothing reads. The schema is
+  // still the only thing that TYPES a value: a states name becomes a boolean parameter only when
+  // data-props declares it tsType boolean, so a bare data-variant stays a variant.
   const surfaceBool = (n) => (n.states || []).find((s) => boolDefaults.has(s)) ?? null;
+  // "Is this a surface boolean" is asked two ways because the two carriers have different evidence:
+  // Node.states is written by the capture ONLY after it measured data-elevation/data-token, so a
+  // states-sourced boolean is a surface boolean by construction (including the surface that fell back
+  // to Box because the enum lacked Card); a callback-sourced one is a surface boolean when the node
+  // carries the surface role spec/04 maps, which is what makes a NAMED Card a surface too.
+  const surfaceHere = (n, prop, fromStates) => fromStates || (n.role === 'Card' && n.callback?.stateProp === prop);
   (function collectBools(id) {
     const n = nodes[id];
     // DOM order, root first: the card's own `selected` precedes the toggle's `subscribed`, which is the
     // order spec/04 states for a parameter list and the order the hand-written card keeps.
-    for (const [prop, isSurface] of [[n.callback?.stateProp, false], [surfaceBool(n), true]]) {
+    const fromCallback = n.callback?.stateProp ?? null;
+    const fromStatesProp = surfaceBool(n);
+    for (const [prop, fromStates] of [[fromCallback, false], [fromStatesProp, true]]) {
       if (!prop || boolParams.some((b) => b.name === camel(prop))) continue;
       if (!boolDefaults.has(prop)) {
         ctx.refuse(`${n.id}: toggle boolean "${prop}" is not declared in the data-props schema, so it has no default to emit`);
       } else {
         boolParams.push({ name: camel(prop), kotlinType: 'Boolean', sample: boolDefaults.get(prop) });
-        if (isSurface) {
+        if (surfaceHere(n, prop, fromStates)) {
+          const carrier = fromStates ? `Node.states ${JSON.stringify(prop)} (spec/02)` : `callback.stateProp ${JSON.stringify(prop)} (spec/02, this surface has an accessible name)`;
           ctx.selection.set(id, camel(prop));
           const click = ctx.nameFor.get(id) ?? null;
-          ctx.note(`${n.id}: surface boolean read from Node.states ${JSON.stringify(prop)} (spec/02) becomes the parameter "${camel(prop)}: Boolean" and Modifier.selectable(selected = ${camel(prop)}, onClick = ${click ?? 'UNPAIRED'}) on the surface -- spec/04's Card row chose that modifier and names the aria-pressed tension; this file follows the row and records it`);
+          ctx.note(`${n.id}: surface boolean read from ${carrier} becomes the parameter "${camel(prop)}: Boolean" and Modifier.selectable(selected = ${camel(prop)}, onClick = ${click ?? 'UNPAIRED'}) on the surface -- spec/04's Card row chose that modifier and names the aria-pressed tension; this file follows the row and records it`);
         }
       }
     }
