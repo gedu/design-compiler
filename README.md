@@ -1,164 +1,169 @@
 # Design Compiler
 
-Turns a Claude Design export into real UI code for Compose Multiplatform (Android, iOS, desktop),
-native SwiftUI, React Native and React web. Output is a compiling starting point with the design's
-geometry, colors and type already resolved. No logic, no state, no navigation: props, hardcoded
-values and empty callbacks, so the next agent spends its tokens on behavior instead of parsing HTML.
+Turns a Claude Design export into real UI code for Compose Multiplatform, native SwiftUI, React
+Native and React web. The output is a compiling starting point with the design's geometry, colors
+and type roles already resolved: props, sample values, empty callbacks. No logic, no state, no
+navigation, so the next agent spends its tokens on behavior instead of parsing HTML.
 
 The other half of the tool is a prompt builder: it assembles the instructions given to Claude Design
 so the design arrives in a shape a compiler can read, and a validator proves the prompt worked.
 
-~~~text
-Claude Design export  (*.dc.html templates, tokens.json, MANIFEST.json)
-        |
-        v   spec/13 bridge: one adapter per source tool -> SourceModel (raw, named, provenance)
-        v   headless Chromium over loopback: walk the DOM, read getComputedStyle()
-   IR     one JSON tree per screen: node kind, geometry, resolved style,
-        | token role, children, repetition groups, states
-        v
-   validator   does the input honor the contract? if not, fail loudly
-        |
-        +--> compose        Color.kt Theme.kt Type.kt Shapes.kt *.kt   (Android, iOS, desktop)
-        +--> swiftui        *.swift  Color Assets  LazyVStack/LazyVGrid
-        +--> react-native   *.tsx  StyleSheet.create  AppRegistry
-        +--> react-web      *.tsx  CSS Modules
-        +--> figma          frames from the IR, no plugin, no import quota
+```text
+<div data-component="podcast-card" data-elevation="1"
+     data-token="colorScheme.surfaceContainer" role="button"
+     aria-pressed="{{ selected }}" onClick="{{ select }}" style="...">
+```
 
-prompt builder (spec/08) --> Claude Design --> the export above, validated by spec/07
-     ^                                              |
-     +---- the unknown-property report (spec/13) <----+
-~~~
+```kotlin
+@Composable
+fun PodcastCard(
+    category: String, title: String, author: String,
+    selected: Boolean, subscribed: Boolean,
+    onSelect: () -> Unit, onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onSelect),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+```
 
-## Why this is a compiler and not a prompt
+One line of authored HTML became a component signature. Nothing above was guessed: the boolean is
+the prop the template's own `{{ }}` hole names, its default comes from the export's prop schema, and
+`selectable` is the row in `spec/04-mapping-compose.md` that decides it.
 
-The hard half of "convert the design to code" is not generating code, it is deciding what the
-design means: which box is a component, which repeated box is a list, which hex is which token,
-which of fifteen text styles this 16/24 medium line is.
+## The three invariants
 
-That work is already finished inside the HTML. The browser has resolved every rule, and the
-repetition of a card twelve times is already the list. Reading those facts is deterministic.
-Asking a model to re-derive them from HTML text is not, and it is the expensive part.
+They outrank any cleverness in the implementation, and every one has a check behind it.
 
-This project reads the computed DOM, so the model is never the parser. What it reads is not raw HTML
-either: spec/13 puts a named SourceModel in front of extraction, so a second design tool costs an
-adapter and not a new extractor.
+1. **Determinism.** Same input plus config yields byte-identical output. No timestamps in generated
+   files, no unordered iteration, no model call anywhere in a mapping path. Reproducibility is the
+   whole reason this exists instead of a chat message.
+2. **The model is never the parser and never resolves a value.** Not a color role, not a component
+   name, not a type role. At most it suggests a name for something unlabeled, and the suggestion is
+   labeled as a suggestion. Table lookups only.
+3. **Refuse instead of invent.** An unmappable case is a diagnostic with options and exit code 3, not
+   a clever workaround. Every invented workaround becomes a behavior someone debugs later. A
+   converter whose output cannot be trusted is worse than none: it moves work from writing to
+   reviewing.
+
+## Why a compiler and not a prompt
+
+The hard half of "convert the design to code" is not generating code, it is deciding what the design
+means: which box is a component, which repeated box is a list, which hex is which token, which of
+fifteen text styles this 16/24 medium line is.
+
+That work is already finished inside the HTML. The browser has resolved every rule, and a card drawn
+twelve times is already the list. Reading those facts is deterministic. Asking a model to re-derive
+them from HTML text is not, and it is the expensive part.
+
+So this reads the computed DOM, and the model is never the parser. What it reads is not raw HTML
+either: `spec/13-bridge.md` puts a named SourceModel in front of extraction, so a second design tool
+costs an adapter and not a new extractor.
 
 ## The bet this rests on
 
-The input format is ours. spec/01-input-contract.md is a contract the design tool is required to
-honor, enforced by a validator before a single line is emitted.
+The input format is ours. `spec/01-input-contract.md` is a contract the design tool is required to
+honor, enforced by a validator before a single line is emitted. With arbitrary HTML this project does
+not work, and it should not try. With contract-honoring HTML the mapping is mostly a table. Every
+rule in the contract buys a translation that would otherwise be a guess, and the contract is cheap
+because it also improves the design output itself.
 
-With arbitrary HTML this project does not work, and it should not try. With contract-honoring
-HTML the mapping is mostly a table. Every rule in the contract buys a translation that would
-otherwise be a guess, and the contract is cheap because it also improves the design output itself.
+## Quickstart
 
-## Non-goals
+Requires Node 24+ and Chromium. `npm test` launches a real browser, so the machine needs some headroom.
 
-- Pixel-perfect output. Text metrics differ per renderer by one or two pixels; chasing them is
-  wasted work.
-- Runtime behavior: state, effects, navigation, data fetching, accessibility wiring beyond labels.
-  The target framework owns those, and the whole point is to leave them for a human or a focused
-  agent.
-- CSS as an input language. No cascade, no preprocessors, no Tailwind, no CSS-in-JS, no Shadow DOM.
-  The contract is the input language.
-- Design fidelity review. The validator checks the contract, not taste.
-- A general HTML to Compose library.
+```bash
+npm install
+node tools/vendor.mjs          # once, needs network: pins the export's own assets locally
+npm test                       # 204 tests
+npm run emit -- --dry-run      # emit the bundled fixture without writing
+npm run validate -- fixtures/reference   # the contract as 24 executable checks
+```
 
-## Layout
+Those four commands are verified on a fresh clone, not on a warm working directory. `vendor.mjs`
+exists because an offline fixture may not reach a CDN: the request router aborts anything the vendor
+lock does not pin, which is a testable claim, unlike "we used a file URL".
 
-| Path | What |
-| --- | --- |
-| tools/probe.mjs | what a real export actually is, re-measured: `node tools/vendor.mjs` once, then `node tools/probe.mjs` |
-| tools/browser.mjs | the shared frame-materialization transport: vendor router, offline guarantee, settle gate. Importable; `probe.mjs` is a thin caller so a second tool cannot re-implement the offline promise |
-| tools/capture.mjs | one materialized frame to the spec/02 Node tree, in memory: `node tools/capture.mjs --json` |
-| tools/emit-compose.mjs | the IR to `Color.kt`, `Theme.kt` and one composable, in its own `ui.generated` package: `node tools/emit-compose.mjs --write <commonMain>/kotlin` |
-| tools/resolve.mjs | the pure value resolvers (color to role, type, shape, elevation); ladders parsed from spec/03 at load: `node tools/resolve.mjs --selftest` |
-| tools/serve.mjs | loopback static server for an export, path-confined to one directory |
-| tools/validate.mjs | the contract table as executable checks: `npm run validate -- fixtures/reference` |
-| tools/property-map.mjs | which CSS properties a target owns, and the unknowns as a repair report: `npm run properties`, `npm run repair` |
-| tools/css-harvest.mjs | the one canonical CSS reader: `{{ }}` holes are opaque, selectors are not declarations |
-| tools/check-contract.mjs | the rule table's own invariants (owner, severity, prompt carriers) |
-| tools/prompt.mjs | assemble the Claude Design prompt: `node tools/prompt.mjs --target compose --out out/DESIGN-PROMPT.md` |
-| rules/contract-rules.json | the normative contract table: prompt and validator read the same rows |
-| rules/property-ownership.json | which mapping spec owns each CSS property, and the severity of each unknown |
-| rules/target-blocks.json | target prompt text as data, with the topic cross-check the assembler runs |
-| tests/golden/ | the assembled prompts and the emitted Kotlin, byte for byte; `npm test` compares, `--update` rewrites |
-| baselines/reference.json | per-code validator counts on the reference export, so a check cannot silently change |
-| docs/lessons.md | the spec/10 log: one line per lesson, each pointing at a check or a fixture |
-| docs/probe-report.md | generated answers: transport, frame isolation, determinism, missing contract attributes |
-| spec/01-input-contract.md | what the export must contain, machine checkable |
-| spec/02-ir.md | the intermediate representation, field by field |
-| spec/03-extraction.md | reading the DOM, computed-style rules, ordering |
-| spec/04-mapping-compose.md | CSS to Compose table and every known trap |
-| spec/05-mapping-react-native.md | CSS to RN, including what Yoga cannot do |
-| spec/06-mapping-react-web.md | CSS to CSS Modules, the cheap target |
-| spec/07-validator.md | diagnostic catalog: code, severity, fix hint |
-| spec/08-platform-aware-prompt.md | the Claude Design prompt, target-platform aware |
-| spec/09-wizard.md | the interactive CLI |
-| spec/10-learning-loop.md | how per-screen runs accumulate rules, not prose |
-| spec/11-figma.md | the two ways into Figma, and which one costs nothing |
-| spec/13-bridge.md | the layer between an export and the IR: adapters, SourceModel, unknown severities |
-| spec/corner-cases.md | the flat catalog: known hard cases and their resolution |
-| odd/tasks/design-compiler.md | the build order, with seams and blockers |
+The end-to-end path against a real Kotlin project is `node tools/emit-compose.mjs --write
+<commonMain>/kotlin`. The compiler of that project is the oracle this repo trusts, and `--rerun` is
+not optional: a `BUILD SUCCESSFUL` with `compileKotlinJvm UP-TO-DATE` reuses an old verdict and says
+nothing about the bytes in front of you.
 
 ## Where to start reading
 
 | Order | File | Read it for |
 | --- | --- | --- |
-| 1 | spec/01-input-contract.md | the bet: a contract instead of arbitrary HTML |
-| 2 | spec/02-ir.md | the one structure every target reads |
-| 3 | spec/03-extraction.md | computed style, reduction, resolution tables |
-| 4 | spec/13-bridge.md | what extraction is allowed to assume, and what it must refuse |
-| 5 | spec/04-mapping-compose.md | the target that matters, and the ten traps |
-| 6 | spec/corner-cases.md | the catalog to work through when output is wrong |
-| 7 | odd/tasks/design-compiler.md | the build order, with each task's measured outcome |
+| 1 | `spec/01-input-contract.md` | the bet: a contract instead of arbitrary HTML |
+| 2 | `spec/02-ir.md` | the one structure every target reads, field by field |
+| 3 | `spec/03-extraction.md` | computed style, reduction, resolution tables |
+| 4 | `spec/13-bridge.md` | what extraction may assume, and what it must refuse |
+| 5 | `spec/04-mapping-compose.md` | the target that matters, and the ten traps |
+| 6 | `spec/corner-cases.md` | the catalog to work through when output is wrong |
+| 7 | `docs/lessons.md` | one line per mistake, each pointing at a check that now catches it |
+| 8 | `odd/tasks/design-compiler.md` | the build order, with each task's measured outcome |
 
-Verified numbers, not from memory: type scale, shape ladder, elevation ladder and state layer
-opacities were read out of material3 1.12.0-alpha03 sources. Re-verify against whatever version is
-pinned when the emitter is built, and treat a mismatch as a bug in the emitter, not as a design
-issue.
+## Layout
 
-That re-verification happened, and it found two API premises that the pinned library disagrees with.
-One was spec/04's: `CardDefaults.cardElevation` takes no `tonalElevation`. One was the emitter's own:
-`Shapes` takes no `full`, so a circle is `CircleShape` at the use site. Both were caught by
-the compiler rather than by reading, which is the cheaper way to be wrong. The emitter writes what
-the pinned API declares and says so in the file.
+| Path | What |
+| --- | --- |
+| `tools/probe.mjs` | what a real export actually is, re-measured: `node tools/probe.mjs` |
+| `tools/browser.mjs` | the shared frame-materialization transport: vendor router, offline guarantee, settle gate. Importable, so a second tool cannot re-implement the offline promise |
+| `tools/capture.mjs` | one materialized frame to the spec/02 Node tree: `node tools/capture.mjs --json` |
+| `tools/emit-compose.mjs` | the IR to `Color.kt`, `Theme.kt` and one composable, in its own `ui.generated` package |
+| `tools/resolve.mjs` | the pure value resolvers (color to role, type, shape, elevation); ladders parsed from spec/03 at load |
+| `tools/serve.mjs` | loopback static server for an export, path-confined to one directory |
+| `tools/validate.mjs` | the contract table as executable checks |
+| `tools/property-map.mjs` | which CSS properties a target owns, and the unknowns as a repair report |
+| `tools/css-harvest.mjs` | the one canonical CSS reader: `{{ }}` holes are opaque, selectors are not declarations |
+| `tools/check-contract.mjs` | the rule table's own invariants (owner, severity, prompt carriers) |
+| `tools/prompt.mjs` | assemble the Claude Design prompt, target-aware |
+| `tools/vendor.mjs` | pin the export's assets into `.vendor/` once, so every later run is offline |
+| `rules/contract-rules.json` | the normative contract table: prompt and validator read the same rows |
+| `rules/property-ownership.json` | which mapping spec owns each CSS property, and the severity of each unknown |
+| `rules/target-blocks.json` | target prompt text as data, with the topic cross-check the assembler runs |
+| `tests/golden/` | the emitted Kotlin and the assembled prompts, byte for byte; `--update` rewrites |
+| `baselines/reference.json` | per-code validator counts on the reference export, so a check cannot silently change |
+| `spec/` | 13 numbered specs plus a corner-case catalog. 12 is reserved for the SwiftUI mapping that does not exist yet, which is why the bridge is 13 |
 
+## Non-goals
 
-## Status
+- Pixel-perfect output. Text metrics differ per renderer by a pixel or two; chasing that is wasted work.
+- Runtime behavior: state, effects, navigation, data fetching. The target framework owns those, and
+  the point is to leave them for a human or a focused agent.
+- CSS as an input language. No cascade, no preprocessors, no Tailwind, no CSS-in-JS, no Shadow DOM.
+  The contract is the input language.
+- Design fidelity review. The validator checks the contract, not taste.
+- A general HTML to Compose library.
 
-T0, T1, T2, T2.5, T3 and T3.1 are done: the input side. Know what an export is, make the contract
-executable, make the prompt, own the layer in between. T5 has its answer in writing, and the first
-emitter exists: `tools/capture.mjs` reads one materialized frame into the spec/02 tree and
-`tools/emit-compose.mjs` writes that tree as `Color.kt`, `Theme.kt` and one composable that compile.
+## Status, measured rather than believed
 
-Half of T5's acceptance stays open on purpose. "Compiles" is measured green; "looks like the frame" has
-never been seen, because every render host means writing into the workshop repo and that repo carries
-the human's uncommitted work. T4 is the other task waiting on a person: the round trip that proves the
-prompt.
+The input side is built and the first emitter works: `tools/capture.mjs` reads one materialized frame
+into the spec/02 tree (20 KB of JSON for this card) and `tools/emit-compose.mjs` writes that tree as
+three Kotlin files that compile. Compose is the only target with an emitter. React Native and React
+web have mapping specs and no code yet; SwiftUI has neither (its spec is 12, reserved for the task
+that writes it -- which is why the bridge is numbered 13).
 
-The input format was written down before an export existed. One arrived on 2026-10-12
-(`~/Documents/CK/internals/kotlin-workshop-lab/jetcasterDesign`) and it differs from spec/01 in ways
-that matter: `.dc.html` templates rendered by a generated runtime, remote fonts and `tokens.css` over
-`<link>`, a glyph icon font instead of inline SVG, and none of the `data-*` contract attributes. In
-exchange it provides a prop schema (`data-props`), a `MANIFEST.json` with screens and states, and
-`tokens.json` with color, typography, shape, spacing and motion. Read the "What changed" table in
-`odd/tasks/design-compiler.md` before taking any statement in spec/01 as fact about the input.
+Reproducible numbers, all from the bundled fixture:
 
-SwiftUI has no mapping spec yet; that is T11, and it is why the bridge spec is number 13.
+- `npm test` -- 204 tests, 204 pass.
+- `npm run emit -- --dry-run` -- 11 IR nodes, 0 error diagnostics; the three emitted files match
+  their goldens byte for byte.
+- `npm run validate -- fixtures/reference` -- 24 checks, 53 errors, 43 warnings, 197 infos, 6
+  unimplemented, exit 1. Those errors are the reference export's own contract violations, which is
+  what the check is for. The counts are pinned in `baselines/reference.json`, so drift fails loudly.
+- `npm run properties` -- 53 CSS properties in 887 declarations, 16 of them (53 declarations) named
+  by no mapping spec, findings 0. Those 16 are the gap spec/13 exists to close.
+- `node tools/check-contract.mjs` -- 50 rules, 0 problems.
 
-Measured rather than believed, all reproducible:
+**What is open, on purpose.** The rendered card is 180x264dp inside a 180x272dp frame: two negative
+CSS margins cancel line-height slack, Compose rejects negative padding outright, and what should
+replace that slack is a mapping decision nobody has made yet. And both values of one boolean render
+pixel-identical, because the icon is a constant where the design swaps glyph, tint and label; the fix
+needs a rule naming where the second glyph comes from, and until then the honest output is a TODO
+rather than a plausible guess.
 
-- `docs/probe-report.md`: materializing a frame needs a loopback server, not a `file://` URL, and the
-  export carries none of the contract attributes the prompt has to ask for.
-- `npm run validate -- fixtures/reference` exits 1 with 53 errors, 43 warnings, 197 infos; its
-  `remote-resource` and `webfont-remote` counts (10, 10) agree with the probe independently.
-- `npm run properties` reports 53 CSS properties in 887 declarations, of which 16 (53 declarations) are
-  named by no mapping spec. Those 16 are the gap spec/13 exists to close, and `npm run repair` renders
-  them as a paste-ready ask for the design tool.
-- `npm test` is 198 tests over the prompt builder, the validator, the property map, the resolver, the
-capture and the emitter.
-- `node tools/emit-compose.mjs --write <commonMain>/kotlin` emits `Color.kt`, `Theme.kt` and one
-composable, and `./app/gradlew -p app :shared:compileKotlinJvm` in the workshop compiles them: 5 class
-files under `ui/generated`, exit 0. That command is the oracle, and it is what refuted the two API
-premises above.
+That honesty is the point of `docs/lessons.md`. When the compiler got something wrong twice, the
+second time it wrote a check instead of a paragraph: a CSS negative margin that compiled, matched its
+golden and crashed the app on launch; a `BUILD SUCCESSFUL` that proved nothing because the task never
+ran; a test that passed while the thing it guarded was deliberately broken.
